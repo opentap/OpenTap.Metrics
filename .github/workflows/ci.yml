@@ -1,0 +1,48 @@
+# Configure the name of this CI unit. This is the name that appears in the GitHub Actions tab
+name: CI
+# Configure what events trigger this action.
+on: [push]
+
+# Configure environment variables that are global to the action defined by this file
+env:
+  #OPENTAP_COLOR: auto # github messes with the "auto" color detection (i.e. it has no effect), and the "always" option breaks a lot of things
+  OPENTAP_ANSI_COLORS: true
+  OPENTAP_NO_UPDATE_CHECK: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_CONSOLE_ANSI_COLOR: true
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the files in this repository. 
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 'tap sdk gitversion' can fail if the version history is incomplete. 
+          # A fetch-depth of 0 ensures we get a complete history.
+          fetch-depth: 0 
+      # Fixes an issue with actions/checkout@v3. See https://github.com/actions/checkout/issues/290
+      - name: Fix tags
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: git fetch -f origin ${{ github.ref }}:${{ github.ref }} 
+      # Build your project
+      - name: Build
+        run: dotnet build -c Release
+      # Upload the package so it can be downloaded from GitHub, 
+      # and consumed by other steps in this workflow
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: tap-package
+          retention-days: 5
+          path: |
+            bin/Release/*.TapPackage
+
+  UnitTests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        run: dotnet test
