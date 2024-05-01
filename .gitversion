@@ -1,0 +1,3 @@
+version = 0.1.0
+beta branch = main
+release branch = release[0-9x]*
