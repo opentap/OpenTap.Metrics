@@ -17,18 +17,6 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <CreateOpenTapPackage>true</CreateOpenTapPackage>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(OS)' == 'WINDOWS_NT' AND '$(Configuration)' == 'Debug'">
-    <!--
-      We target .NET Framework in debug builds when debugging with the WPF Editor due to a bug in Visual Studio's debugger.
-      The debugger assumes that netstandard projects should be debugged as .NET Core apps, and thus launches a .NET Core debugger
-      which fails to attach because tap.exe is a .NET Framework application.
-
-      To ensure maximum compatibility, we recommend targetting netstandard2.0 in release builds, unless you need specific
-      APIs that are not available in netstandard2.0.
-    -->
-    <TargetFramework>net472</TargetFramework>
-  </PropertyGroup>
-  
   <ItemGroup Condition="'$(OS)' == 'WINDOWS_NT' AND '$(Configuration)' == 'Debug'"> 
     <AdditionalOpenTapPackage Include="Editor"/>
     <AdditionalOpenTapPackage Include="Live Results Panel"/> 
@@ -37,4 +25,11 @@
   <ItemGroup>
     <PackageReference Include="OpenTAP" Version="$(OpenTapVersion)" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <OpenTapPackageReference Include="Sign" Version="$(SIGN_VERSION)" Reference="False" Repository="https://test-automation.pw.keysight.com/api/packages" Token="$(KS8500_REPO_TOKEN)" />
+    <OpenTapPackageReference Include="Keg" Version="0.1.0" Reference="False" />
+    <OpenTapPackageReference Include="Dotfuscator" Version="$(DOTFUSCATOR_VERSION)" Reference="False" />
+  </ItemGroup>
+
 </Project>

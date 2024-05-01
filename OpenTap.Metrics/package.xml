@@ -10,7 +10,9 @@ $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.
   <Description>This is my OpenTAP plugin package.</Description>
   <Files>
     <File Path="Packages/Metrics/OpenTap.Metrics.dll" SourcePath="OpenTap.Metrics.dll">
+        <Sign Certificate="Keysight Technologies, Inc."/>
         <SetAssemblyInfo Attributes="Version"/>
+        <ObfuscateWithDotfuscator/>
     </File>
   </Files>
 </Package>
