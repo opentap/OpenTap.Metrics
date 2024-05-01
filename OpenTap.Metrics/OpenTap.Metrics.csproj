@@ -8,7 +8,7 @@
     <TargetFrameworkIdentifier></TargetFrameworkIdentifier>
     <TargetFrameworkVersion></TargetFrameworkVersion>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DebugWith>TUI</DebugWith>
+    <LangVersion>10</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
     <OpenTapPackageDefinitionPath>package.xml</OpenTapPackageDefinitionPath>
@@ -28,13 +28,13 @@
     -->
     <TargetFramework>net472</TargetFramework>
   </PropertyGroup>
+  
+  <ItemGroup Condition="'$(OS)' == 'WINDOWS_NT' AND '$(Configuration)' == 'Debug'"> 
+    <AdditionalOpenTapPackage Include="Editor"/>
+    <AdditionalOpenTapPackage Include="Live Results Panel"/> 
+  </ItemGroup>
+  
   <ItemGroup>
     <PackageReference Include="OpenTAP" Version="$(OpenTapVersion)" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(DebugWith)' == 'TUI'">
-    <OpenTapPackageReference Include="TUI" version="1" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(DebugWith)' == 'Editor'">
-    <OpenTapPackageReference Include="Editor" version="9" />
   </ItemGroup>
 </Project>

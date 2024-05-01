@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Metrics", "Metrics\Metrics.csproj", "{1A05AC90-7D83-4A85-A679-6A5CADB170C3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTap.Metrics", "OpenTap.Metrics\OpenTap.Metrics.csproj", "{1A05AC90-7D83-4A85-A679-6A5CADB170C3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTap.Metrics.UnitTest", "OpenTap.Metrics.UnitTest\OpenTap.Metrics.UnitTest.csproj", "{A15E3E1A-961D-4103-9547-62A8F06993EA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,5 +20,9 @@ Global
 		{1A05AC90-7D83-4A85-A679-6A5CADB170C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1A05AC90-7D83-4A85-A679-6A5CADB170C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1A05AC90-7D83-4A85-A679-6A5CADB170C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A15E3E1A-961D-4103-9547-62A8F06993EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A15E3E1A-961D-4103-9547-62A8F06993EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A15E3E1A-961D-4103-9547-62A8F06993EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A15E3E1A-961D-4103-9547-62A8F06993EA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
