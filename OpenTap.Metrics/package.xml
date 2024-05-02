@@ -11,7 +11,8 @@ $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.
   <Files>
     <File Path="Packages/Metrics/OpenTap.Metrics.dll" SourcePath="OpenTap.Metrics.dll">
         <Sign Certificate="Keysight Technologies, Inc."/>
-        <SetAssemblyInfo Attributes="Version"/>
+        <!-- This is being set automatically in the .csproj  -->
+        <!-- <SetAssemblyInfo Attributes="Version"/> -->
         <ObfuscateWithDotfuscator/>
     </File>
   </Files>

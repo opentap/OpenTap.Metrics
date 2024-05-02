@@ -12,8 +12,23 @@ env:
   DOTNET_CONSOLE_ANSI_COLOR: true
 
 jobs:
+  GetVersion:
+    runs-on: ubuntu-20.04
+    outputs:
+      ShortVersion: ${{ steps.gitversion.outputs.ShortVersion }}
+      GitVersion: ${{ steps.gitversion.outputs.GitVersion }}
+    steps:
+      # The get-gitversion action installs OpenTAP and fetches with fetch-depth: 0
+      - name: GitVersion
+        id: gitversion
+        uses: opentap/get-gitversion@v1.1
+
   Build:
     runs-on: ubuntu-latest
+    needs: GetVersion
+    env:
+      ShortVersion: ${{ needs.GetVersion.outputs.ShortVersion }}
+      GitVersion: ${{ needs.GetVersion.outputs.GitVersion }}
     steps:
       # Check out the files in this repository. 
       - name: Checkout
