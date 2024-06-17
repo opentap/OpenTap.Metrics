@@ -127,7 +127,7 @@ public static class MetricManager
     /// <summary> Poll metrics. </summary>
     public static void PollMetrics()
     {
-        var allMetrics = GetMetricInfos().Where(metric => metric.metric.Kind.HasFlag(MetricKind.Poll)).ToArray();
+        var allMetrics = GetMetricInfos().Where(m => m.metric.Kind.HasFlag(MetricKind.Poll)).ToArray();
         Dictionary<IMetricListener, MetricInfo[]> interestLookup = new Dictionary<IMetricListener, MetricInfo[]>();
         HashSet<MetricInfo> InterestMetrics = new HashSet<MetricInfo>();
         foreach (var consumer in _consumers)
@@ -138,39 +138,47 @@ public static class MetricManager
 
         var interest2 = interestLookup.Values.SelectMany(x => x).Distinct().ToHashSet();
         _interest = interest2;
-        foreach (var producer in allMetrics.Where(x => InterestMetrics.Contains(x.Item1)).Select(x => x.Item2).OfType<IMetricUpdateCallback>().Distinct())
+        foreach (var producer in allMetrics.Where(x => InterestMetrics.Contains(x.Item1)).Select(x => x.Item2).OfType<IOnPollMetricsCallback>().Distinct())
         {
-            producer.UpdateMetrics();
+            var polled = allMetrics.Where(m => ReferenceEquals(m.source, producer)).Where(m => InterestMetrics.Contains(m.metric)).Select(m => m.metric);
+            try
+            {
+                producer.OnPollMetrics(polled);
+            }
+            catch (Exception ex)
+            {
+                log.Warning($"Unhandled exception in OnPollMetrics on '{producer}': '{ex.Message}'");
+            }
         }
             
         Dictionary<MetricInfo, IMetric> metricValues = new Dictionary<MetricInfo, IMetric>();
-        foreach (var metric in allMetrics)
+        foreach ((MetricInfo metric, object source) in allMetrics)
         {
-            if(interest2.Contains(metric.Item1) == false)
+            if (interest2.Contains(metric) == false)
                 continue;
             IMetric metricObject = null;
-            var metricValue = metric.Item1.GetValue(metric.Item2);
+            var metricValue = metric.GetValue(source);
             switch (metricValue)
             {
                 case bool v:
-                    metricObject = new BooleanMetric( metric.Item1, v);
+                    metricObject = new BooleanMetric(metric, v);
                     break;
                 case double v:
-                    metricObject = new DoubleMetric( metric.Item1, v);
+                    metricObject = new DoubleMetric(metric, v);
                     break;
                 case int v:
-                    metricObject = new DoubleMetric( metric.Item1, v);
+                    metricObject = new DoubleMetric(metric, v);
                     break;
                 case string v:
-                    metricObject = new StringMetric( metric.Item1, v);
+                    metricObject = new StringMetric(metric, v);
                     break;
                 default:
-                    log.ErrorOnce(metric, "Metric value is not a supported type: {0} of type {1}",  metric.Item1.Name, metricValue?.GetType().Name ?? "null");
+                    log.ErrorOnce(metric, "Metric value is not a supported type: {0} of type {1}", metric.Name, metricValue?.GetType().Name ?? "null");
                     break;
             }
             if (metricObject != null)
             {
-                metricValues[ metric.Item1] = metricObject;
+                metricValues[metric] = metricObject;
             }
         }
 
@@ -181,7 +189,14 @@ public static class MetricManager
             {
                 if (metricValues.TryGetValue(metric, out var metricValue))
                 {
-                    consumer.OnPushMetric(metricValue);
+                    try
+                    {
+                        consumer.OnPushMetric(metricValue);
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Warning($"Unhandled exception in OnPushMetric on '{consumer}': '{ex.Message}'");
+                    }
                 }
             }
         }
