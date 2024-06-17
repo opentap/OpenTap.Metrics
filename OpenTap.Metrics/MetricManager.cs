@@ -10,6 +10,17 @@ namespace OpenTap.Metrics;
 /// </summary>
 public static class MetricManager
 {
+    /// <summary>
+    /// NOTE: This method only exists to clear between unit tests.
+    /// This should never be used
+    /// </summary>
+    internal static void Reset()
+    {
+        _consumers.Clear();
+        _interestLookup.Clear();
+        _metricProducers.Clear();
+    }
+    
     static readonly HashSet<IMetricListener> _consumers =
         new HashSet<IMetricListener>();
 
@@ -18,23 +29,47 @@ public static class MetricManager
     public static void RegisterListener(IMetricListener listener)
     {
         _consumers.Add(listener);
-        foreach (var i in listener.GetInterest(GetMetricInfos()))
-        {
-            // Interest is normally populated during PollMetrics,
-            // but if only Push metrics are used, Poll may never be called.
-            _interest.Add(i);
-        }
     }
 
-    /// <summary> Register a metric consumer. </summary>
+    private static ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>> _interestLookup =
+        new ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>>();
+    
+    /// <summary>
+    /// Set the interest set of a given metric listener. The current interest set is overwritten.
+    /// </summary>
+    /// <param name="listener">The listener expressing interest.</param>
+    /// <param name="interest">The set of metric infos of interest.</param>
+    public static void SetInterest(IMetricListener listener, IEnumerable<MetricInfo> interest)
+    {
+        var hs = interest.ToHashSet();
+        if (hs.Any())
+            _interestLookup[listener] = hs;
+        else
+            _interestLookup.TryRemove(listener, out _);
+    }
+
+
+    /// <summary>
+    /// Add interest in a given metric to the interest set for this listener.
+    /// </summary>
+    /// <param name="listener">The listener expressing interest.</param>
+    /// <param name="interest">The metric to add interest for.</param>
+    public static void AddInterest(IMetricListener listener, MetricInfo interest)
+    {
+        var hs = _interestLookup.GetOrAdd(listener, _ => new HashSet<MetricInfo>());
+        hs.Add(interest);
+    }
+
+    /// <summary> Unregister a metric consumer. </summary>
     /// <param name="listener"></param>
     public static void UnregisterListener(IMetricListener listener)
     {
         _consumers.Remove(listener);
+        _interestLookup.TryRemove(listener, out _);
     }
 
     /// <summary> Returns true if a metric has interest. </summary>
-    public static bool HasInterest(MetricInfo metric) => _interest.Contains(metric);
+    public static bool HasInterest(MetricInfo metric) => _interestLookup.Values.Any(x => x.Contains(metric));
         
     /// <summary> Get information about the metrics available to query. </summary>
     /// <returns></returns>
@@ -44,6 +79,10 @@ public static class MetricManager
         List<IMetricSource> producers = new List<IMetricSource>();
         foreach (var type in types)
         {
+            // DUT and Instrument settings will explicitly added later if they are configured on the bench,
+            // regardless of whether or not they are IMetricSources.
+            if (type.DescendsTo(typeof(DutSettings)) || type.DescendsTo(typeof(InstrumentSettings)))
+                continue;
             if (type.DescendsTo(typeof(ComponentSettings)))
             {
                 if(ComponentSettings.GetCurrent(type) is IMetricSource producer)
@@ -91,8 +130,6 @@ public static class MetricManager
     private static readonly ConcurrentDictionary<ITypeData, IMetricSource> _metricProducers =
         new ConcurrentDictionary<ITypeData, IMetricSource>();
 
-    private static HashSet<MetricInfo> _interest = new HashSet<MetricInfo>();
-
     /// <summary> Push a double metric. </summary>
     public static void PushMetric(MetricInfo metric, double value)
     {
@@ -116,14 +153,9 @@ public static class MetricManager
     /// <exception cref="ArgumentException"></exception>
     static void PushMetric(IMetric metric)
     {
-        var metrics = new[]
-        {
-            metric.Info
-        };
         foreach (var consumer in _consumers.ToList())
         {
-            var thisInterest = consumer.GetInterest(metrics);
-            if (thisInterest.Any(m => m == metric.Info))
+            if (_interestLookup.TryGetValue(consumer, out var interest) && interest.Contains(metric.Info))
                 consumer.OnPushMetric(metric);
         }
     }
@@ -131,79 +163,46 @@ public static class MetricManager
     static readonly TraceSource log = Log.CreateSource("Metric");
 
     /// <summary> Poll metrics. </summary>
-    public static void PollMetrics()
+    public static IEnumerable<IMetric> PollMetrics(IEnumerable<MetricInfo> interestSet)
     {
-        var allMetrics = GetMetricInfos().Where(m => m.Kind.HasFlag(MetricKind.Poll)).ToArray();
-        Dictionary<IMetricListener, MetricInfo[]> interestLookup = new Dictionary<IMetricListener, MetricInfo[]>();
-        HashSet<MetricInfo> InterestMetrics = new HashSet<MetricInfo>();
-        foreach (var consumer in _consumers.ToList())
+        var interest = interestSet.Where(i => i.Kind.HasFlag(MetricKind.Poll)).ToHashSet();
+        interest.RemoveWhere(i => !i.Kind.HasFlag(MetricKind.Poll));
+        
+        foreach (var source in interest.GroupBy(i => i.Source))
         {
-            interestLookup[consumer] = consumer.GetInterest(allMetrics).ToArray();
-            InterestMetrics.UnionWith(interestLookup[consumer]);
+            if (source.Key is IOnPollMetricsCallback producer)
+            {
+                try
+                {
+                    producer.OnPollMetrics(source);
+                }
+                catch (Exception ex)
+                {
+                    log.Warning($"Unhandled exception in OnPollMetrics on '{producer}': '{ex.Message}'");
+                }
+            }
         }
 
-        var interest2 = interestLookup.Values.SelectMany(x => x).Distinct().ToHashSet();
-        _interest = interest2;
-        foreach (var producer in allMetrics.Where(x => InterestMetrics.Contains(x)).Select(x => x.Source).OfType<IOnPollMetricsCallback>().Distinct())
+        foreach (var metric in interest)
         {
-            var polled = allMetrics.Where(m => ReferenceEquals(m.Source, producer)).Where(m => InterestMetrics.Contains(m));
-            try
-            {
-                producer.OnPollMetrics(polled);
-            }
-            catch (Exception ex)
-            {
-                log.Warning($"Unhandled exception in OnPollMetrics on '{producer}': '{ex.Message}'");
-            }
-        }
-            
-        Dictionary<MetricInfo, IMetric> metricValues = new Dictionary<MetricInfo, IMetric>();
-        foreach (var metric in allMetrics)
-        {
-            if (interest2.Contains(metric) == false)
-                continue;
-            IMetric metricObject = null;
             var metricValue = metric.GetValue(metric.Source);
             switch (metricValue)
             {
                 case bool v:
-                    metricObject = new BooleanMetric(metric, v);
+                    yield return new BooleanMetric(metric, v);
                     break;
                 case double v:
-                    metricObject = new DoubleMetric(metric, v);
+                    yield return new DoubleMetric(metric, v);
                     break;
                 case int v:
-                    metricObject = new DoubleMetric(metric, v);
+                    yield return new DoubleMetric(metric, v);
                     break;
                 case string v:
-                    metricObject = new StringMetric(metric, v);
+                    yield return new StringMetric(metric, v);
                     break;
                 default:
                     log.ErrorOnce(metric, "Metric value is not a supported type: {0} of type {1}", metric.Name, metricValue?.GetType().Name ?? "null");
                     break;
-            }
-            if (metricObject != null)
-            {
-                metricValues[metric] = metricObject;
-            }
-        }
-
-        foreach (var consumerInterest in interestLookup)
-        {
-            var consumer = consumerInterest.Key;
-            foreach (var metric in consumerInterest.Value)
-            {
-                if (metricValues.TryGetValue(metric, out var metricValue))
-                {
-                    try
-                    {
-                        consumer.OnPushMetric(metricValue);
-                    }
-                    catch (Exception ex)
-                    {
-                        log.Warning($"Unhandled exception in OnPushMetric on '{consumer}': '{ex.Message}'");
-                    }
-                }
             }
         }
     }
