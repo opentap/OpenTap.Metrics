@@ -10,7 +10,7 @@ namespace OpenTap.Metrics.UnitTest;
 [Display("Test Metric Producer")]
 public class TestMetricSource : IMetricSource
 {
-    [Metric] [Unit("I")] public double X { get; private set; }
+    [Metric][Unit("I")] public double X { get; private set; }
 
     [Metric]
     [Unit("V")]
@@ -29,7 +29,7 @@ public class TestMetricSource : IMetricSource
             MetricManager.PushMetric(xMetric, X);
             MetricManager.PushMetric(yMetric, Math.Sin(_offset * 0.1));
         }
-    }   
+    }
 }
 
 [TestFixture]
@@ -57,7 +57,7 @@ public class MetricManagerTest
         [Display("I", Group: "Metrics")]
         [Metric]
         public double Current { get; private set; }
-        
+
         [Metric]
         public string Id { get; set; }
 
@@ -132,7 +132,7 @@ public class MetricManagerTest
             var instrTest = new IdleResultTestInstrument();
 
             InstrumentSettings.Current.Add(instrTest);
-            var metrics = MetricManager.GetMetricInfos().Select(x => x.Item1).ToArray();
+            var metrics = MetricManager.GetMetricInfos().ToArray();
 
             var testMetric = metrics.FirstOrDefault(m => m.MetricFullName == "INST / Test");
             Assert.IsNotNull(testMetric);
@@ -144,7 +144,7 @@ public class MetricManagerTest
 
             Assert.Contains("Test Metric Producer / Y", metrics.Select(m => m.MetricFullName).ToArray());
             InstrumentSettings.Current.Remove(instrTest);
-            metrics = MetricManager.GetMetricInfos().Select(x => x.Item1).ToArray();
+            metrics = MetricManager.GetMetricInfos().ToArray();
 
             Assert.IsFalse(metrics.Any(m => m.MetricFullName == "INST / v"));
         }
@@ -155,11 +155,11 @@ public class MetricManagerTest
         public List<MetricInfo> interestMetrics { get; }
         public HasInterestTestListener()
         {
-            interestMetrics = MetricManager.GetMetricInfos().Select(m => m.metric).OrderBy(m => m.GetHashCode()).ToList();
+            interestMetrics = MetricManager.GetMetricInfos().OrderBy(m => m.GetHashCode()).ToList();
         }
         public void OnPushMetric(IMetric table)
         {
-            
+
         }
 
         public MetricInfo[] PolledMetrics = Array.Empty<MetricInfo>();
@@ -174,30 +174,29 @@ public class MetricManagerTest
     {
         MetricInfo[] a1 = left.OrderBy(m => m.GetHashCode()).ToArray();
         MetricInfo[] a2 = right.OrderBy(m => m.GetHashCode()).ToArray();
-        
+
         Assert.AreEqual(a1.Length, a2.Length);
-        
+
         for (int i = 0; i < a1.Length; i++)
         {
             var m1 = a1[i];
             var m2 = a2[i];
-            
+
             Assert.AreEqual(m1.GetHashCode(), m2.GetHashCode());
             Assert.AreEqual(m1, m2);
         }
     }
     [Test]
     public void TestHasInterest()
-    { 
-        CompareMetricLists(MetricManager.GetMetricInfos().Select(m => m.metric),
-            MetricManager.GetMetricInfos().Select(m => m.metric));
+    {
+        CompareMetricLists(MetricManager.GetMetricInfos(), MetricManager.GetMetricInfos());
 
         var listener = new HasInterestTestListener();
         MetricManager.RegisterListener(listener);
 
         for (int i = 0; i < 10; i++)
         {
-            MetricManager.PollMetrics(); 
+            MetricManager.PollMetrics();
             CompareMetricLists(listener.interestMetrics, listener.PolledMetrics);
         }
 
@@ -218,12 +217,12 @@ public class MetricManagerTest
             InstrumentSettings.Current.Clear();
             var instrTest = new IdleResultTestInstrument();
             InstrumentSettings.Current.Add(instrTest);
-            
+
             // Verify that the metric returned by GetMetricInfo is equal to the metrics created by MetricManager
             var currentMetricInfo = MetricManager.GetMetricInfo(instrTest, nameof(instrTest.Current));
             var managerInfo = MetricManager.GetMetricInfos().Where(m =>
-                currentMetricInfo.GetHashCode().Equals(m.metric.GetHashCode()) &&
-                currentMetricInfo.Equals(m.metric)).ToArray();
+                currentMetricInfo.GetHashCode().Equals(m.GetHashCode()) &&
+                currentMetricInfo.Equals(m)).ToArray();
             Assert.AreEqual(1, managerInfo.Length);
         }
     }
@@ -242,7 +241,7 @@ public class MetricManagerTest
             var metricInfos = MetricManager.GetMetricInfos();
             foreach (var metric in metricInfos)
             {
-                listener.MetricFilter.Add(metric.Item1);
+                listener.MetricFilter.Add(metric);
             }
 
             listener.MetricFilter.Remove(MetricManager.GetMetricInfo(instrTest, nameof(instrTest.Id)));

@@ -7,6 +7,9 @@ namespace OpenTap.Metrics;
 /// <summary> Information about a given metric, </summary>
 public class MetricInfo
 {
+    /// <summary> The object that produces this metric. </summary>
+    public object Source { get; }
+
     /// <summary> Whether this metric can be polled or will be published out of band. </summary>
     public MetricKind Kind { get; }
 
@@ -31,7 +34,8 @@ public class MetricInfo
     /// <summary> Creates a new metric info based on a member name. </summary>
     /// <param name="mem">The metric member object.</param>
     /// <param name="groupName">The name of the metric group.</param>
-    public MetricInfo(IMemberData mem, string groupName)
+    /// <param name="source">The object that produces this metric.</param>
+    public MetricInfo(IMemberData mem, string groupName, object source)
     {
         Member = mem;
         GroupName = groupName;
@@ -53,6 +57,7 @@ public class MetricInfo
         }
 
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
+        Source = source;
     }
 
     /// <summary> Creates a new metric info based on custom data. </summary>
@@ -60,13 +65,15 @@ public class MetricInfo
     /// <param name="groupName">The name of the metric group.</param>
     /// <param name="attributes">The attributes of the metric.</param>
     ///  <param name="kind">The push / poll semantics of the metric. </param>
-    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, MetricKind kind)
+    /// <param name="source">The object that produces this metric.</param>
+    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, MetricKind kind, object source)
     {
         Name = name;
         Member = null;
         GroupName = groupName;
         Attributes = attributes;
         Kind = kind;
+        Source = source;
     }
 
     /// <summary>
@@ -85,7 +92,8 @@ public class MetricInfo
         if (obj is MetricInfo o)
             return string.Equals(GroupName, o.GroupName, StringComparison.Ordinal) &&
                    string.Equals(Name, o.Name, StringComparison.Ordinal) &&
-                   Equals(Member, o.Member);
+                   Equals(Member, o.Member) &&
+                   Equals(Source, o.Source);
 
         return false;
     }
@@ -96,7 +104,8 @@ public class MetricInfo
     /// <returns></returns>
     public override int GetHashCode()
     {
-        return HashCode.Combine(Name.GetHashCode(), GroupName?.GetHashCode() ?? 0, Member?.GetHashCode(), 5639212);
+        var hc = HashCode.Combine(Name.GetHashCode(), GroupName?.GetHashCode() ?? 0, Member?.GetHashCode());
+        return HashCode.Combine(Source?.GetHashCode(), hc, 5639212);
     }
 
     /// <summary> Gets the value of the metric. </summary>
