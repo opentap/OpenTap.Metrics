@@ -86,4 +86,4 @@ jobs:
           version: 9.18.4
           packages: 'Repository Client:1.0'
       - name: Publish Packages
-        run: tap repo upload --repository https://test-automation.pw.keysight.com/api/packages --token ${{ secrets.KS8500_REPO_TOKEN }} *.TapPackage
+        run: tap repo upload --repository https://packages.opentap.io --token ${{ secrets.PUBLIC_REPO_TOKEN }} *.TapPackage
