@@ -18,6 +18,12 @@ public static class MetricManager
     public static void RegisterListener(IMetricListener listener)
     {
         _consumers.Add(listener);
+        foreach (var i in listener.GetInterest(GetMetricInfos()))
+        {
+            // Interest is normally populated during PollMetrics,
+            // but if only Push metrics are used, Poll may never be called.
+            _interest.Add(i);
+        }
     }
 
     /// <summary> Register a metric consumer. </summary>
