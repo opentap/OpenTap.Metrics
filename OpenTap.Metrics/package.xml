@@ -7,7 +7,10 @@ For Version the following macro is available (Only works if the project director
 $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.Build-PreRelease+CommitHash.BranchName.
 -->
 <Package Name="Metrics" xmlns="http://opentap.io/schemas/package" InfoLink="" Version="$(GitVersion)" OS="Windows,Linux,MacOS">
-  <Description>This plugin provides interfaces to publish and listen to metrics..</Description>
+  <Description>This plugin provides interfaces to publish and listen to metrics.</Description>
+  <Dependencies>
+    <PackageDependency Package="OpenTAP" Version="^9.16.4+654f0b6b" />
+  </Dependencies>
   <Files>
     <File Path="Packages/Metrics/OpenTap.Metrics.dll" SourcePath="OpenTap.Metrics.dll">
         <Sign Certificate="Keysight Technologies, Inc."/>
