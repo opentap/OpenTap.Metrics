@@ -155,7 +155,7 @@ public class MetricManagerTest
                 consumer.MetricFilter.Add(metric.Item1);
             }
 
-            MetricManager.RegisterConsumer(consumer);
+            MetricManager.RegisterListener(consumer);
             MetricManager.PollMetrics();
 
 
