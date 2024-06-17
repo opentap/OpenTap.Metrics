@@ -141,6 +141,69 @@ public class MetricManagerTest
         }
     }
 
+    public class HasInterestTestListener : IMetricListener
+    {
+        public List<MetricInfo> interestMetrics { get; }
+        public HasInterestTestListener()
+        {
+            interestMetrics = MetricManager.GetMetricInfos().Select(m => m.metric).OrderBy(m => m.GetHashCode()).ToList();
+        }
+        public void OnPushMetric(IMetric table)
+        {
+            
+        }
+
+        public MetricInfo[] PolledMetrics = Array.Empty<MetricInfo>();
+        public IEnumerable<MetricInfo> GetInterest(IEnumerable<MetricInfo> allMetrics)
+        {
+            PolledMetrics = allMetrics.ToArray();
+            return interestMetrics;
+        }
+    }
+
+    static void CompareMetricLists(IEnumerable<MetricInfo> left, IEnumerable<MetricInfo> right)
+    {
+        MetricInfo[] a1 = left.OrderBy(m => m.GetHashCode()).ToArray();
+        MetricInfo[] a2 = right.OrderBy(m => m.GetHashCode()).ToArray();
+        
+        Assert.AreEqual(a1.Length, a2.Length);
+        
+        for (int i = 0; i < a1.Length; i++)
+        {
+            var m1 = a1[i];
+            var m2 = a2[i];
+            
+            Assert.AreEqual(m1.GetHashCode(), m2.GetHashCode());
+            Assert.AreEqual(m1, m2);
+        }
+    }
+    [Test]
+    public void TestHasInterest()
+    { 
+        CompareMetricLists(MetricManager.GetMetricInfos().Select(m => m.metric),
+            MetricManager.GetMetricInfos().Select(m => m.metric));
+
+        var listener = new HasInterestTestListener();
+        MetricManager.RegisterListener(listener);
+
+        for (int i = 0; i < 10; i++)
+        {
+            MetricManager.PollMetrics(); 
+            CompareMetricLists(listener.interestMetrics, listener.PolledMetrics);
+        }
+
+        // Verify that all initial metrics are currently of interest
+        foreach (var m in listener.interestMetrics)
+        {
+            Assert.IsTrue(MetricManager.HasInterest(m));
+        }
+        // Verify that all polled metrics are currently of interest
+        foreach (var m in listener.PolledMetrics)
+        {
+            Assert.IsTrue(MetricManager.HasInterest(m));
+        }
+    }
+
     [Test]
     public void TestGetMetrics()
     {
