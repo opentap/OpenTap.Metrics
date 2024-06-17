@@ -35,7 +35,7 @@ public class TestMetricSource : IMetricSource
 [TestFixture]
 public class MetricManagerTest
 {
-    public class IdleResultTestInstrument : Instrument, IMetricUpdateCallback
+    public class IdleResultTestInstrument : Instrument, IOnPollMetricsCallback
     {
         public IdleResultTestInstrument()
         {
@@ -61,8 +61,18 @@ public class MetricManagerTest
         [Metric]
         public string Id { get; set; }
 
-        public void UpdateMetrics()
+        public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
         {
+            var metricV = MetricManager.GetMetricInfo(this, nameof(Voltage));
+            var currentV = MetricManager.GetMetricInfo(this, nameof(Current));
+            var idV = MetricManager.GetMetricInfo(this, nameof(Id));
+
+            var metricMap = metrics.ToHashSet();
+
+            Assert.IsTrue(metricMap.Contains(metricV));
+            Assert.IsTrue(metricMap.Contains(currentV));
+            Assert.IsFalse(metricMap.Contains(idV));
+
             Voltage = Math.Sin(sw.Elapsed.TotalSeconds * 100.0) + 2.5;
             Current = Math.Cos(sw.Elapsed.TotalSeconds * 100.0) * 0.1 + 1.5;
             Id = Guid.NewGuid().ToString();
@@ -90,7 +100,6 @@ public class MetricManagerTest
             }
 
         }
-
     }
 
     public class TestMetricsListener : IMetricListener
@@ -229,11 +238,14 @@ public class MetricManagerTest
             var instrTest = new IdleResultTestInstrument();
 
             InstrumentSettings.Current.Add(instrTest);
+
             var metricInfos = MetricManager.GetMetricInfos();
             foreach (var metric in metricInfos)
             {
                 listener.MetricFilter.Add(metric.Item1);
             }
+
+            listener.MetricFilter.Remove(MetricManager.GetMetricInfo(instrTest, nameof(instrTest.Id)));
 
             MetricManager.RegisterListener(listener);
             MetricManager.PollMetrics();
@@ -242,14 +254,14 @@ public class MetricManagerTest
             instrTest.PushRangeValues();
 
             var results0 = listener.MetricValues.ToArray();
-            Assert.AreEqual(16, results0.Length);
+            Assert.AreEqual(15, results0.Length);
 
             listener.Clear();
             listener.MetricFilter.Remove(listener.MetricFilter.FirstOrDefault(x => x.Name == "Test"));
             MetricManager.PollMetrics();
             instrTest.PushRangeValues();
             var results2 = listener.MetricValues.ToArray();
-            Assert.AreEqual(5, results2.Length);
+            Assert.AreEqual(4, results2.Length);
         }
     }
 }
