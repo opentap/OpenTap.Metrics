@@ -202,6 +202,21 @@ public class MetricManagerTest
         {
             Assert.IsTrue(MetricManager.HasInterest(m));
         }
+
+
+        using (Session.Create())
+        {
+            InstrumentSettings.Current.Clear();
+            var instrTest = new IdleResultTestInstrument();
+            InstrumentSettings.Current.Add(instrTest);
+            
+            // Verify that the metric returned by GetMetricInfo is equal to the metrics created by MetricManager
+            var currentMetricInfo = MetricManager.GetMetricInfo(instrTest, nameof(instrTest.Current));
+            var managerInfo = MetricManager.GetMetricInfos().Where(m =>
+                currentMetricInfo.GetHashCode().Equals(m.metric.GetHashCode()) &&
+                currentMetricInfo.Equals(m.metric)).ToArray();
+            Assert.AreEqual(1, managerInfo.Length);
+        }
     }
 
     [Test]
