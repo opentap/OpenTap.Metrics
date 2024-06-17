@@ -120,7 +120,7 @@ public static class MetricManager
         {
             metric.Info
         };
-        foreach (var consumer in _consumers)
+        foreach (var consumer in _consumers.ToList())
         {
             var thisInterest = consumer.GetInterest(metrics);
             if (thisInterest.Any(m => m == metric.Info))
@@ -136,7 +136,7 @@ public static class MetricManager
         var allMetrics = GetMetricInfos().Where(m => m.Kind.HasFlag(MetricKind.Poll)).ToArray();
         Dictionary<IMetricListener, MetricInfo[]> interestLookup = new Dictionary<IMetricListener, MetricInfo[]>();
         HashSet<MetricInfo> InterestMetrics = new HashSet<MetricInfo>();
-        foreach (var consumer in _consumers)
+        foreach (var consumer in _consumers.ToList())
         {
             interestLookup[consumer] = consumer.GetInterest(allMetrics).ToArray();
             InterestMetrics.UnionWith(interestLookup[consumer]);
