@@ -73,13 +73,13 @@ public static class MetricManager
         }
     }
         
-    /// <summary> For now only double, int and bool type are supported. </summary>
+    /// <summary> For now only string, double, int, and bool type are supported. </summary>
     /// <param name="td"></param>
     /// <returns></returns>
     static bool TypeIsSupported(ITypeData td)
     {
         var type = td.AsTypeData().Type;
-        return type == typeof(double) || type == typeof(bool) || type == typeof(int);
+        return type == typeof(double) || type == typeof(bool) || type == typeof(int) || type == typeof(string);
     }
 
     private static readonly ConcurrentDictionary<ITypeData, IMetricSource> _metricProducers =
