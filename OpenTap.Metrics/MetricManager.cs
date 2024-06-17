@@ -127,7 +127,7 @@ public static class MetricManager
     /// <summary> Poll metrics. </summary>
     public static void PollMetrics()
     {
-        var allMetrics = GetMetricInfos().Where(metric => metric.metric.Ephemeral == false).ToArray();
+        var allMetrics = GetMetricInfos().Where(metric => metric.metric.Kind.HasFlag(MetricKind.Poll)).ToArray();
         Dictionary<IMetricListener, MetricInfo[]> interestLookup = new Dictionary<IMetricListener, MetricInfo[]>();
         HashSet<MetricInfo> InterestMetrics = new HashSet<MetricInfo>();
         foreach (var consumer in _consumers)

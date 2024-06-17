@@ -8,9 +8,10 @@ namespace OpenTap.Metrics;
 public class MetricInfo
 {
     /// <summary> Whether this metric can be polled or will be published out of band. </summary>
-    public bool Ephemeral { get; }
-
     public MetricKind Kind { get; }
+
+    /// <summary> The type of this metric. </summary>
+    public MetricType Type { get; }
 
     /// <summary> The metric member object. </summary>
     IMemberData Member { get; }
@@ -36,19 +37,19 @@ public class MetricInfo
         GroupName = groupName;
         Attributes = Member.Attributes.ToArray();
         var metricAttr = Attributes.OfType<MetricAttribute>().FirstOrDefault();
-        if (metricAttr != null)
-            Ephemeral = metricAttr.Ephemeral;
+        Kind = metricAttr?.Kind ?? MetricKind.Poll;
+
         if (mem.TypeDescriptor.IsNumeric())
         {
-            Kind = MetricKind.Double;
+            Type = MetricType.Double;
         }
         else if (mem.TypeDescriptor.DescendsTo(typeof(string)))
         {
-            Kind = MetricKind.String;
+            Type = MetricType.String;
         }
         else if (mem.TypeDescriptor.DescendsTo(typeof(bool)))
         {
-            Kind = MetricKind.Boolean;
+            Type = MetricType.Boolean;
         }
 
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
@@ -58,14 +59,14 @@ public class MetricInfo
     /// <param name="name">The name of the metric.</param>
     /// <param name="groupName">The name of the metric group.</param>
     /// <param name="attributes">The attributes of the metric.</param>
-    ///  <param name="ephemeral"> Whether the metric is ephemeral. </param>
-    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, bool ephemeral)
+    ///  <param name="kind">The push / poll semantics of the metric. </param>
+    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, MetricKind kind)
     {
         Name = name;
         Member = null;
         GroupName = groupName;
         Attributes = attributes;
-        Ephemeral = ephemeral;
+        Kind = kind;
     }
 
     /// <summary>
