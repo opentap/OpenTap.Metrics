@@ -32,11 +32,11 @@ public static class MetricManager
         
     /// <summary> Get information about the metrics available to query. </summary>
     /// <returns></returns>
-    public static IEnumerable<(MetricInfo metric, object source)> GetMetricInfos()
+    public static IEnumerable<MetricInfo> GetMetricInfos()
     {
         var types = TypeData.GetDerivedTypes<IMetricSource>().Where(x => x.CanCreateInstance);
         List<IMetricSource> producers = new List<IMetricSource>();
-        foreach (var type in types.Select(t => t))
+        foreach (var type in types)
         {
             if (type.DescendsTo(typeof(ComponentSettings)))
             {
@@ -63,12 +63,12 @@ public static class MetricManager
             foreach (var member in memberGrp)
             {
                 foreach(var mem in member)
-                    yield return (new MetricInfo(mem, member.Key), metricSource);
+                    yield return new MetricInfo(mem, member.Key, metricSource);
             }
             if (metricSource is IAdditionalMetricSources source2)
             {
                 foreach (var metric in source2.AdditionalMetrics)
-                    yield return (metric, metricSource);
+                    yield return metric;
             }
         }
     }
@@ -127,20 +127,20 @@ public static class MetricManager
     /// <summary> Poll metrics. </summary>
     public static void PollMetrics()
     {
-        var allMetrics = GetMetricInfos().Where(m => m.metric.Kind.HasFlag(MetricKind.Poll)).ToArray();
+        var allMetrics = GetMetricInfos().Where(m => m.Kind.HasFlag(MetricKind.Poll)).ToArray();
         Dictionary<IMetricListener, MetricInfo[]> interestLookup = new Dictionary<IMetricListener, MetricInfo[]>();
         HashSet<MetricInfo> InterestMetrics = new HashSet<MetricInfo>();
         foreach (var consumer in _consumers)
         {
-            interestLookup[consumer] = consumer.GetInterest(allMetrics.Select(item => item.Item1)).ToArray();
+            interestLookup[consumer] = consumer.GetInterest(allMetrics).ToArray();
             InterestMetrics.UnionWith(interestLookup[consumer]);
         }
 
         var interest2 = interestLookup.Values.SelectMany(x => x).Distinct().ToHashSet();
         _interest = interest2;
-        foreach (var producer in allMetrics.Where(x => InterestMetrics.Contains(x.Item1)).Select(x => x.Item2).OfType<IOnPollMetricsCallback>().Distinct())
+        foreach (var producer in allMetrics.Where(x => InterestMetrics.Contains(x)).Select(x => x.Source).OfType<IOnPollMetricsCallback>().Distinct())
         {
-            var polled = allMetrics.Where(m => ReferenceEquals(m.source, producer)).Where(m => InterestMetrics.Contains(m.metric)).Select(m => m.metric);
+            var polled = allMetrics.Where(m => ReferenceEquals(m.Source, producer)).Where(m => InterestMetrics.Contains(m));
             try
             {
                 producer.OnPollMetrics(polled);
@@ -152,12 +152,12 @@ public static class MetricManager
         }
             
         Dictionary<MetricInfo, IMetric> metricValues = new Dictionary<MetricInfo, IMetric>();
-        foreach ((MetricInfo metric, object source) in allMetrics)
+        foreach (var metric in allMetrics)
         {
             if (interest2.Contains(metric) == false)
                 continue;
             IMetric metricObject = null;
-            var metricValue = metric.GetValue(source);
+            var metricValue = metric.GetValue(metric.Source);
             switch (metricValue)
             {
                 case bool v:
@@ -212,7 +212,7 @@ public static class MetricManager
             if (TypeIsSupported(mem.TypeDescriptor))
             {
                 return new MetricInfo(mem,
-                    metric.Group ?? (source as IResource)?.Name ?? type.GetDisplayAttribute()?.Name);
+                    metric.Group ?? (source as IResource)?.Name ?? type.GetDisplayAttribute()?.Name, source);
             }
         }
         return null;
