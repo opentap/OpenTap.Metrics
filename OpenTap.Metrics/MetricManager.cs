@@ -32,7 +32,7 @@ public static class MetricManager
         
     /// <summary> Get information about the metrics available to query. </summary>
     /// <returns></returns>
-    public static IEnumerable<(MetricInfo metric, object source)> GetMetricInfos()
+    public static IEnumerable<MetricInfoData> GetMetricInfos()
     {
         var types = TypeData.GetDerivedTypes<IMetricSource>().Where(x => x.CanCreateInstance);
         List<IMetricSource> producers = new List<IMetricSource>();
@@ -63,12 +63,12 @@ public static class MetricManager
             foreach (var member in memberGrp)
             {
                 foreach(var mem in member)
-                    yield return (new MetricInfo(mem, member.Key), metricSource);
+                    yield return new MetricInfoData(new MetricInfo(mem, member.Key), metricSource);
             }
             if (metricSource is IAdditionalMetricSources source2)
             {
                 foreach (var metric in source2.AdditionalMetrics)
-                    yield return (metric, metricSource);
+                    yield return new MetricInfoData(metric, metricSource);
             }
         }
     }
@@ -127,20 +127,20 @@ public static class MetricManager
     /// <summary> Poll metrics. </summary>
     public static void PollMetrics()
     {
-        var allMetrics = GetMetricInfos().Where(m => m.metric.Kind.HasFlag(MetricKind.Poll)).ToArray();
+        var allMetrics = GetMetricInfos().Where(m => m.Metric.Kind.HasFlag(MetricKind.Poll)).ToArray();
         Dictionary<IMetricListener, MetricInfo[]> interestLookup = new Dictionary<IMetricListener, MetricInfo[]>();
         HashSet<MetricInfo> InterestMetrics = new HashSet<MetricInfo>();
         foreach (var consumer in _consumers)
         {
-            interestLookup[consumer] = consumer.GetInterest(allMetrics.Select(item => item.Item1)).ToArray();
+            interestLookup[consumer] = consumer.GetInterest(allMetrics.Select(src => src.Metric)).ToArray();
             InterestMetrics.UnionWith(interestLookup[consumer]);
         }
 
         var interest2 = interestLookup.Values.SelectMany(x => x).Distinct().ToHashSet();
         _interest = interest2;
-        foreach (var producer in allMetrics.Where(x => InterestMetrics.Contains(x.Item1)).Select(x => x.Item2).OfType<IOnPollMetricsCallback>().Distinct())
+        foreach (var producer in allMetrics.Where(x => InterestMetrics.Contains(x.Metric)).Select(x => x.Source).OfType<IOnPollMetricsCallback>().Distinct())
         {
-            var polled = allMetrics.Where(m => ReferenceEquals(m.source, producer)).Where(m => InterestMetrics.Contains(m.metric)).Select(m => m.metric);
+            var polled = allMetrics.Where(m => ReferenceEquals(m.Source, producer)).Where(m => InterestMetrics.Contains(m.Metric)).Select(m => m.Metric);
             try
             {
                 producer.OnPollMetrics(polled);
@@ -152,33 +152,33 @@ public static class MetricManager
         }
             
         Dictionary<MetricInfo, IMetric> metricValues = new Dictionary<MetricInfo, IMetric>();
-        foreach ((MetricInfo metric, object source) in allMetrics)
+        foreach (var src in allMetrics)
         {
-            if (interest2.Contains(metric) == false)
+            if (interest2.Contains(src.Metric) == false)
                 continue;
             IMetric metricObject = null;
-            var metricValue = metric.GetValue(source);
+            var metricValue = src.Metric.GetValue(src.Source);
             switch (metricValue)
             {
                 case bool v:
-                    metricObject = new BooleanMetric(metric, v);
+                    metricObject = new BooleanMetric(src.Metric, v);
                     break;
                 case double v:
-                    metricObject = new DoubleMetric(metric, v);
+                    metricObject = new DoubleMetric(src.Metric, v);
                     break;
                 case int v:
-                    metricObject = new DoubleMetric(metric, v);
+                    metricObject = new DoubleMetric(src.Metric, v);
                     break;
                 case string v:
-                    metricObject = new StringMetric(metric, v);
+                    metricObject = new StringMetric(src.Metric, v);
                     break;
                 default:
-                    log.ErrorOnce(metric, "Metric value is not a supported type: {0} of type {1}", metric.Name, metricValue?.GetType().Name ?? "null");
+                    log.ErrorOnce(src.Metric, "Metric value is not a supported type: {0} of type {1}", src.Metric.Name, metricValue?.GetType().Name ?? "null");
                     break;
             }
             if (metricObject != null)
             {
-                metricValues[metric] = metricObject;
+                metricValues[src.Metric] = metricObject;
             }
         }
 
