@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -80,9 +81,10 @@ public class MetricInfo
     /// <returns></returns>
     public override bool Equals(object obj)
     {
-        if (obj is MetricInfo otherMetric)
-            return otherMetric.GroupName == GroupName && Name == otherMetric.Name &&
-                   Equals(otherMetric.Member, Member);
+        if (obj is MetricInfo o)
+            return string.Equals(GroupName, o.GroupName, StringComparison.Ordinal) &&
+                   string.Equals(Name, o.Name, StringComparison.Ordinal) &&
+                   Equals(Member, o.Member);
 
         return false;
     }
