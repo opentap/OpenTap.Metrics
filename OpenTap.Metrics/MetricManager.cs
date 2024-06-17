@@ -10,14 +10,21 @@ namespace OpenTap.Metrics;
 /// </summary>
 public static class MetricManager
 {
-    static readonly WeakHashSet<IMetricListener> _consumers =
-        new WeakHashSet<IMetricListener>();
+    static readonly HashSet<IMetricListener> _consumers =
+        new HashSet<IMetricListener>();
 
     /// <summary> Register a metric consumer. </summary>
     /// <param name="listener"></param>
-    public static void RegisterConsumer(IMetricListener listener)
+    public static void RegisterListener(IMetricListener listener)
     {
         _consumers.Add(listener);
+    }
+
+    /// <summary> Register a metric consumer. </summary>
+    /// <param name="listener"></param>
+    public static void UnregisterListener(IMetricListener listener)
+    {
+        _consumers.Remove(listener);
     }
 
     /// <summary> Returns true if a metric has interest. </summary>
@@ -107,10 +114,10 @@ public static class MetricManager
         {
             metric.Info
         };
-        foreach (var consumer in _consumers.GetElements())
+        foreach (var consumer in _consumers)
         {
             var thisInterest = consumer.GetInterest(metrics);
-            if (thisInterest.Any())
+            if (thisInterest.Any(m => m == metric.Info))
                 consumer.OnPushMetric(metric);
         }
     }
@@ -123,7 +130,7 @@ public static class MetricManager
         var allMetrics = GetMetricInfos().Where(metric => metric.metric.Ephemeral == false).ToArray();
         Dictionary<IMetricListener, MetricInfo[]> interestLookup = new Dictionary<IMetricListener, MetricInfo[]>();
         HashSet<MetricInfo> InterestMetrics = new HashSet<MetricInfo>();
-        foreach (var consumer in _consumers.GetElements())
+        foreach (var consumer in _consumers)
         {
             interestLookup[consumer] = consumer.GetInterest(allMetrics.Select(item => item.Item1)).ToArray();
             InterestMetrics.UnionWith(interestLookup[consumer]);
