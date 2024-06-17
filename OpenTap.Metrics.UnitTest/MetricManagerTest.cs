@@ -22,8 +22,6 @@ public class TestMetricSource : IMetricSource
         var xMetric = MetricManager.GetMetricInfo(this, nameof(X));
         var yMetric = MetricManager.GetMetricInfo(this, nameof(Y));
         if (!MetricManager.HasInterest(xMetric)) return;
-        var x = new List<double>();
-        var y = new List<double>();
         for (int i = 0; i < 100; i++)
         {
             _offset += 1;
@@ -59,11 +57,15 @@ public class MetricManagerTest
         [Display("I", Group: "Metrics")]
         [Metric]
         public double Current { get; private set; }
+        
+        [Metric]
+        public string Id { get; set; }
 
         public void UpdateMetrics()
         {
             Voltage = Math.Sin(sw.Elapsed.TotalSeconds * 100.0) + 2.5;
             Current = Math.Cos(sw.Elapsed.TotalSeconds * 100.0) * 0.1 + 1.5;
+            Id = Guid.NewGuid().ToString();
         }
 
 
@@ -145,31 +147,31 @@ public class MetricManagerTest
         using (Session.Create())
         {
             InstrumentSettings.Current.Clear();
-            var consumer = new TestMetricsListener();
+            var listener = new TestMetricsListener();
             var instrTest = new IdleResultTestInstrument();
 
             InstrumentSettings.Current.Add(instrTest);
             var metricInfos = MetricManager.GetMetricInfos();
             foreach (var metric in metricInfos)
             {
-                consumer.MetricFilter.Add(metric.Item1);
+                listener.MetricFilter.Add(metric.Item1);
             }
 
-            MetricManager.RegisterListener(consumer);
+            MetricManager.RegisterListener(listener);
             MetricManager.PollMetrics();
 
 
             instrTest.PushRangeValues();
 
-            var results0 = consumer.MetricValues.ToArray();
-            Assert.AreEqual(15, results0.Length);
+            var results0 = listener.MetricValues.ToArray();
+            Assert.AreEqual(16, results0.Length);
 
-            consumer.Clear();
-            consumer.MetricFilter.Remove(consumer.MetricFilter.FirstOrDefault(x => x.Name == "Test"));
+            listener.Clear();
+            listener.MetricFilter.Remove(listener.MetricFilter.FirstOrDefault(x => x.Name == "Test"));
             MetricManager.PollMetrics();
             instrTest.PushRangeValues();
-            var results2 = consumer.MetricValues.ToArray();
-            Assert.AreEqual(4, results2.Length);
+            var results2 = listener.MetricValues.ToArray();
+            Assert.AreEqual(5, results2.Length);
         }
     }
 }
