@@ -32,6 +32,10 @@
   </ItemGroup>
   
   <ItemGroup>
+    <InternalsVisibleTo Include="OpenTap.Metrics.UnitTest" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="OpenTAP" Version="$(OpenTapVersion)" />
   </ItemGroup>
 

@@ -79,7 +79,7 @@ public class MetricManagerTest
         }
 
 
-        [Metric]
+        [Metric(kind: MetricKind.Push)]
         [Unit("cm")]
         [Range(minimum: 0.0)]
         public int Test { get; private set; }
@@ -91,10 +91,8 @@ public class MetricManagerTest
             var iMetric = MetricManager.GetMetricInfo(this, nameof(Test));
             if (MetricManager.HasInterest(iMetric) == false)
                 return;
-            var lst = new List<int>();
             for (int i = 0; i < Count; i++)
             {
-                lst.Add(i);
                 Test++;
                 MetricManager.PushMetric(iMetric, Test);
             }
@@ -110,105 +108,80 @@ public class MetricManagerTest
             MetricValues.Clear();
         }
 
-        public List<IMetric> MetricValues = new List<IMetric>();
+        public readonly List<IMetric> MetricValues = new List<IMetric>();
 
         public void OnPushMetric(IMetric table)
         {
             MetricValues.Add(table);
         }
-
-        public HashSet<MetricInfo> MetricFilter { get; set; } = new HashSet<MetricInfo>();
-
-        public IEnumerable<MetricInfo> GetInterest(IEnumerable<MetricInfo> allMetrics) =>
-            allMetrics.Where(MetricFilter.Contains);
     }
 
     [Test]
     public void TestMetricNames()
     {
-        using (Session.Create())
-        {
-            InstrumentSettings.Current.Clear();
-            var instrTest = new IdleResultTestInstrument();
+        using var _ = Session.Create();
+        MetricManager.Reset();
+        InstrumentSettings.Current.Clear();
+        var instrTest = new IdleResultTestInstrument();
 
-            InstrumentSettings.Current.Add(instrTest);
-            var metrics = MetricManager.GetMetricInfos().ToArray();
+        InstrumentSettings.Current.Add(instrTest);
+        var metrics = MetricManager.GetMetricInfos().ToArray();
 
-            var testMetric = metrics.FirstOrDefault(m => m.MetricFullName == "INST / Test");
-            Assert.IsNotNull(testMetric);
-            var range = testMetric.Attributes.OfType<RangeAttribute>().FirstOrDefault();
-            Assert.IsNotNull(range);
-            Assert.IsTrue(range.Minimum == 0.0);
+        var testMetric = metrics.FirstOrDefault(m => m.MetricFullName == "INST / Test");
+        Assert.IsNotNull(testMetric);
+        var range = testMetric.Attributes.OfType<RangeAttribute>().FirstOrDefault();
+        Assert.IsNotNull(range);
+        Assert.IsTrue(range.Minimum == 0.0);
 
-            Assert.IsTrue(metrics.Any(m => m.MetricFullName == "INST / v"));
+        Assert.IsTrue(metrics.Any(m => m.MetricFullName == "INST / v"));
 
-            Assert.Contains("Test Metric Producer / Y", metrics.Select(m => m.MetricFullName).ToArray());
-            InstrumentSettings.Current.Remove(instrTest);
-            metrics = MetricManager.GetMetricInfos().ToArray();
+        Assert.Contains("Test Metric Producer / Y", metrics.Select(m => m.MetricFullName).ToArray());
+        InstrumentSettings.Current.Remove(instrTest);
+        metrics = MetricManager.GetMetricInfos().ToArray();
 
-            Assert.IsFalse(metrics.Any(m => m.MetricFullName == "INST / v"));
-        }
-    }
-
-    public class HasInterestTestListener : IMetricListener
-    {
-        public List<MetricInfo> interestMetrics { get; }
-        public HasInterestTestListener()
-        {
-            interestMetrics = MetricManager.GetMetricInfos().OrderBy(m => m.GetHashCode()).ToList();
-        }
-        public void OnPushMetric(IMetric table)
-        {
-
-        }
-
-        public MetricInfo[] PolledMetrics = Array.Empty<MetricInfo>();
-        public IEnumerable<MetricInfo> GetInterest(IEnumerable<MetricInfo> allMetrics)
-        {
-            PolledMetrics = allMetrics.ToArray();
-            return interestMetrics;
-        }
-    }
-
-    static void CompareMetricLists(IEnumerable<MetricInfo> left, IEnumerable<MetricInfo> right)
-    {
-        MetricInfo[] a1 = left.OrderBy(m => m.GetHashCode()).ToArray();
-        MetricInfo[] a2 = right.OrderBy(m => m.GetHashCode()).ToArray();
-
-        Assert.AreEqual(a1.Length, a2.Length);
-
-        for (int i = 0; i < a1.Length; i++)
-        {
-            var m1 = a1[i];
-            var m2 = a2[i];
-
-            Assert.AreEqual(m1.GetHashCode(), m2.GetHashCode());
-            Assert.AreEqual(m1, m2);
-        }
-    }
+        Assert.IsFalse(metrics.Any(m => m.MetricFullName == "INST / v"));
+    } 
+    
     [Test]
     public void TestHasInterest()
     {
+        MetricManager.Reset();
         CompareMetricLists(MetricManager.GetMetricInfos(), MetricManager.GetMetricInfos());
 
-        var listener = new HasInterestTestListener();
+        var allMetrics = MetricManager.GetMetricInfos().ToArray();
+        var listener = new TestMetricsListener();
+        
+        MetricManager.ShowInterest(listener, allMetrics); 
         MetricManager.RegisterListener(listener);
 
-        for (int i = 0; i < 10; i++)
-        {
-            MetricManager.PollMetrics();
-            CompareMetricLists(listener.interestMetrics, listener.PolledMetrics);
-        }
+        var returned = MetricManager.PollMetrics(allMetrics).ToArray();
+        Assert.AreEqual(returned.Length, allMetrics.Length); 
 
-        // Verify that all initial metrics are currently of interest
-        foreach (var m in listener.interestMetrics)
         {
-            Assert.IsTrue(MetricManager.HasInterest(m));
-        }
-        // Verify that all polled metrics are currently of interest
-        foreach (var m in listener.PolledMetrics)
-        {
-            Assert.IsTrue(MetricManager.HasInterest(m));
+            var listener2 = new TestMetricsListener();
+            MetricManager.ShowInterest(listener2, allMetrics);
+            
+            // Verify that all metrics are currently of interest
+            foreach (var m in allMetrics)
+            {
+                Assert.IsTrue(MetricManager.HasInterest(m));
+            }
+
+            MetricManager.ShowInterest(listener, Array.Empty<MetricInfo>());
+
+            // Verify that all metrics are still of interest
+            foreach (var m in allMetrics)
+            {
+                Assert.IsTrue(MetricManager.HasInterest(m));
+            }
+            
+            MetricManager.ShowInterest(listener2, Array.Empty<MetricInfo>());
+            
+            // Verify that no metrics are of interest
+            foreach (var m in allMetrics)
+            {
+                Assert.IsFalse(MetricManager.HasInterest(m));
+            }
         }
 
 
@@ -226,41 +199,56 @@ public class MetricManagerTest
             Assert.AreEqual(1, managerInfo.Length);
         }
     }
+    
+    static void CompareMetricLists(IEnumerable<MetricInfo> left, IEnumerable<MetricInfo> right)
+    {
+        MetricInfo[] a1 = left.OrderBy(m => m.GetHashCode()).ToArray();
+        MetricInfo[] a2 = right.OrderBy(m => m.GetHashCode()).ToArray();
+
+        Assert.AreEqual(a1.Length, a2.Length);
+
+        for (int i = 0; i < a1.Length; i++)
+        {
+            var m1 = a1[i];
+            var m2 = a2[i];
+
+            Assert.AreEqual(m1.GetHashCode(), m2.GetHashCode());
+            Assert.AreEqual(m1, m2);
+        }
+    }
 
     [Test]
     public void TestGetMetrics()
     {
-        using (Session.Create())
-        {
-            InstrumentSettings.Current.Clear();
-            var listener = new TestMetricsListener();
-            var instrTest = new IdleResultTestInstrument();
+        MetricManager.Reset();
+        using var _ = Session.Create();
+        InstrumentSettings.Current.Clear();
+        var listener = new TestMetricsListener();
+        var instrTest = new IdleResultTestInstrument();
+        InstrumentSettings.Current.Add(instrTest);
 
-            InstrumentSettings.Current.Add(instrTest);
+        var interestSet = MetricManager.GetMetricInfos().ToList();
+        interestSet.Remove(MetricManager.GetMetricInfo(instrTest, nameof(instrTest.Id)));
 
-            var metricInfos = MetricManager.GetMetricInfos();
-            foreach (var metric in metricInfos)
-            {
-                listener.MetricFilter.Add(metric);
-            }
+        MetricManager.RegisterListener(listener);
+        MetricManager.ShowInterest(listener, interestSet);
 
-            listener.MetricFilter.Remove(MetricManager.GetMetricInfo(instrTest, nameof(instrTest.Id)));
-
-            MetricManager.RegisterListener(listener);
-            MetricManager.PollMetrics();
+        var metrics = MetricManager.PollMetrics(interestSet);
+        Assert.AreEqual(metrics.Count(), interestSet.Count(m => m.Kind.HasFlag(MetricKind.Poll)));
 
 
-            instrTest.PushRangeValues();
+        instrTest.PushRangeValues();
 
-            var results0 = listener.MetricValues.ToArray();
-            Assert.AreEqual(15, results0.Length);
+        var results0 = listener.MetricValues.ToArray();
+        Assert.AreEqual(10, results0.Length);
 
-            listener.Clear();
-            listener.MetricFilter.Remove(listener.MetricFilter.FirstOrDefault(x => x.Name == "Test"));
-            MetricManager.PollMetrics();
-            instrTest.PushRangeValues();
-            var results2 = listener.MetricValues.ToArray();
-            Assert.AreEqual(4, results2.Length);
-        }
+        listener.Clear();
+        interestSet.RemoveAll(x => x.Name == "Test");
+        MetricManager.ShowInterest(listener, interestSet);
+        metrics = MetricManager.PollMetrics(interestSet);
+        Assert.AreEqual(metrics.Count(), interestSet.Count(m => m.Kind.HasFlag(MetricKind.Poll)));
+        instrTest.PushRangeValues();
+        var results2 = listener.MetricValues.ToArray();
+        Assert.AreEqual(0, results2.Length);
     }
 }
