@@ -31,7 +31,7 @@ public static class MetricManager
         _consumers.Add(listener);
     }
 
-    private static ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>> _interestLookup =
+    private static readonly ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>> _interestLookup =
         new ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>>();
     
     /// <summary>
@@ -39,26 +39,14 @@ public static class MetricManager
     /// </summary>
     /// <param name="listener">The listener expressing interest.</param>
     /// <param name="interest">The set of metric infos of interest.</param>
-    public static void SetInterest(IMetricListener listener, IEnumerable<MetricInfo> interest)
+    public static void ShowInterest(IMetricListener listener, IEnumerable<MetricInfo> interest)
     {
         var hs = interest.ToHashSet();
         if (hs.Any())
             _interestLookup[listener] = hs;
         else
             _interestLookup.TryRemove(listener, out _);
-    }
-
-
-    /// <summary>
-    /// Add interest in a given metric to the interest set for this listener.
-    /// </summary>
-    /// <param name="listener">The listener expressing interest.</param>
-    /// <param name="interest">The metric to add interest for.</param>
-    public static void AddInterest(IMetricListener listener, MetricInfo interest)
-    {
-        var hs = _interestLookup.GetOrAdd(listener, _ => new HashSet<MetricInfo>());
-        hs.Add(interest);
-    }
+    } 
 
     /// <summary> Unregister a metric consumer. </summary>
     /// <param name="listener"></param>
@@ -160,7 +148,7 @@ public static class MetricManager
         }
     }
         
-    static readonly TraceSource log = Log.CreateSource("Metric");
+    static readonly TraceSource log = Log.CreateSource(nameof(MetricManager));
 
     /// <summary> Poll metrics. </summary>
     public static IEnumerable<IMetric> PollMetrics(IEnumerable<MetricInfo> interestSet)
