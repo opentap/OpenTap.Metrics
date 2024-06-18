@@ -151,15 +151,14 @@ public class MetricManagerTest
         var allMetrics = MetricManager.GetMetricInfos().ToArray();
         var listener = new TestMetricsListener();
         
-        MetricManager.ShowInterest(listener, allMetrics); 
-        MetricManager.RegisterListener(listener);
+        MetricManager.Subscribe(listener, allMetrics); 
 
         var returned = MetricManager.PollMetrics(allMetrics).ToArray();
         Assert.AreEqual(returned.Length, allMetrics.Length); 
 
         {
             var listener2 = new TestMetricsListener();
-            MetricManager.ShowInterest(listener2, allMetrics);
+            MetricManager.Subscribe(listener2, allMetrics);
             
             // Verify that all metrics are currently of interest
             foreach (var m in allMetrics)
@@ -167,7 +166,7 @@ public class MetricManagerTest
                 Assert.IsTrue(MetricManager.HasInterest(m));
             }
 
-            MetricManager.ShowInterest(listener, Array.Empty<MetricInfo>());
+            MetricManager.Subscribe(listener, Array.Empty<MetricInfo>());
 
             // Verify that all metrics are still of interest
             foreach (var m in allMetrics)
@@ -175,7 +174,7 @@ public class MetricManagerTest
                 Assert.IsTrue(MetricManager.HasInterest(m));
             }
             
-            MetricManager.ShowInterest(listener2, Array.Empty<MetricInfo>());
+            MetricManager.Subscribe(listener2, Array.Empty<MetricInfo>());
             
             // Verify that no metrics are of interest
             foreach (var m in allMetrics)
@@ -230,8 +229,7 @@ public class MetricManagerTest
         var interestSet = MetricManager.GetMetricInfos().ToList();
         interestSet.Remove(MetricManager.GetMetricInfo(instrTest, nameof(instrTest.Id)));
 
-        MetricManager.RegisterListener(listener);
-        MetricManager.ShowInterest(listener, interestSet);
+        MetricManager.Subscribe(listener, interestSet);
 
         var metrics = MetricManager.PollMetrics(interestSet);
         Assert.AreEqual(metrics.Count(), interestSet.Count(m => m.Kind.HasFlag(MetricKind.Poll)));
@@ -244,7 +242,7 @@ public class MetricManagerTest
 
         listener.Clear();
         interestSet.RemoveAll(x => x.Name == "Test");
-        MetricManager.ShowInterest(listener, interestSet);
+        MetricManager.Subscribe(listener, interestSet);
         metrics = MetricManager.PollMetrics(interestSet);
         Assert.AreEqual(metrics.Count(), interestSet.Count(m => m.Kind.HasFlag(MetricKind.Poll)));
         instrTest.PushRangeValues();

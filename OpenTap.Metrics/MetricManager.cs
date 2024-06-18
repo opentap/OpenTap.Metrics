@@ -16,43 +16,27 @@ public static class MetricManager
     /// </summary>
     internal static void Reset()
     {
-        _consumers.Clear();
         _interestLookup.Clear();
         _metricProducers.Clear();
-    }
-    
-    static readonly HashSet<IMetricListener> _consumers =
-        new HashSet<IMetricListener>();
-
-    /// <summary> Register a metric consumer. </summary>
-    /// <param name="listener"></param>
-    public static void RegisterListener(IMetricListener listener)
-    {
-        _consumers.Add(listener);
-    }
+    } 
 
     private static readonly ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>> _interestLookup =
         new ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>>();
     
     /// <summary>
-    /// Set the interest set of a given metric listener. The current interest set is overwritten.
+    /// Subscribe to the given set of push metrics. When called again, this updates the interest set of the listener.
     /// </summary>
-    /// <param name="listener">The listener expressing interest.</param>
+    /// <param name="listener">The listener to subscribe.</param>
     /// <param name="interest">The set of metric infos of interest.</param>
-    public static void ShowInterest(IMetricListener listener, IEnumerable<MetricInfo> interest)
+    public static void Subscribe(IMetricListener listener, IEnumerable<MetricInfo> interest)
     {
-        var hs = interest.ToHashSet();
-        if (hs.Any())
-            _interestLookup[listener] = hs;
-        else
-            _interestLookup.TryRemove(listener, out _);
+        _interestLookup[listener] = interest.ToHashSet();
     } 
 
-    /// <summary> Unregister a metric consumer. </summary>
-    /// <param name="listener"></param>
-    public static void UnregisterListener(IMetricListener listener)
+    /// <summary> Unsubscribe from push metrics. </summary>
+    /// <param name="listener">The lsitener to unsubscribe.</param>
+    public static void Unsubscribe(IMetricListener listener)
     {
-        _consumers.Remove(listener);
         _interestLookup.TryRemove(listener, out _);
     }
 
@@ -64,7 +48,7 @@ public static class MetricManager
     public static IEnumerable<MetricInfo> GetMetricInfos()
     {
         var types = TypeData.GetDerivedTypes<IMetricSource>().Where(x => x.CanCreateInstance);
-        List<IMetricSource> producers = new List<IMetricSource>();
+        List<object> producers = new List<object>();
         foreach (var type in types)
         {
             // DUT and Instrument settings will explicitly added later if they are configured on the bench,
@@ -83,8 +67,7 @@ public static class MetricManager
             }
         }
 
-        foreach (var metricSource in InstrumentSettings.Current.Cast<object>().Concat(DutSettings.Current)
-                     .Concat(producers))
+        foreach (var metricSource in producers.Concat(InstrumentSettings.Current).Concat(DutSettings.Current))
         {
 
             var type1 = TypeData.GetTypeData(metricSource);
@@ -141,7 +124,7 @@ public static class MetricManager
     /// <exception cref="ArgumentException"></exception>
     static void PushMetric(IMetric metric)
     {
-        foreach (var consumer in _consumers.ToList())
+        foreach (var consumer in _interestLookup.Keys.ToList())
         {
             if (_interestLookup.TryGetValue(consumer, out var interest) && interest.Contains(metric.Info))
                 consumer.OnPushMetric(metric);
