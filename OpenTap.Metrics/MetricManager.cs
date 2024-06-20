@@ -53,7 +53,7 @@ public static class MetricManager
         {
             // DUT and Instrument settings will explicitly added later if they are configured on the bench,
             // regardless of whether or not they are IMetricSources.
-            if (type.DescendsTo(typeof(DutSettings)) || type.DescendsTo(typeof(InstrumentSettings)))
+            if (type.DescendsTo(typeof(IDut)) || type.DescendsTo(typeof(IInstrument)))
                 continue;
             if (type.DescendsTo(typeof(ComponentSettings)))
             {
@@ -149,7 +149,7 @@ public static class MetricManager
                 }
                 catch (Exception ex)
                 {
-                    log.Warning($"Unhandled exception in OnPollMetrics on '{producer}': '{ex.Message}'");
+                    log.Warning($"Unhandled exception in OnPollMetrics in '{producer}': '{ex.Message}'");
                 }
             }
         }
