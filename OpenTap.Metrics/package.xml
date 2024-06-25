@@ -19,7 +19,6 @@ $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.
         <Sign Certificate="Keysight Technologies, Inc."/>
         <!-- This is being set automatically in the .csproj  -->
         <!-- <SetAssemblyInfo Attributes="Version"/> -->
-        <ObfuscateWithDotfuscator/>
     </File>
   </Files>
 </Package>
