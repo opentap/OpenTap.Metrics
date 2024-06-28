@@ -12,56 +12,6 @@ namespace OpenTap.Metrics.UnitTest;
 [TestFixture]
 public class DynamicMetricTests
 {
-
-    class MetricMemberData : IMemberData
-    {
-        public MetricMemberData(ITypeData declaringType, ITypeData typeDescriptor, MetricAttribute attr, Func<object> getter, params object[] additionalAttributes)
-        {
-            Name = attr.Name;
-            DeclaringType = declaringType;
-            TypeDescriptor = typeDescriptor;
-            Attributes = new[] { attr }.Concat(additionalAttributes).ToArray();
-            Getter = getter;
-        }
-        public ITypeData DeclaringType { get; }
-
-        public ITypeData TypeDescriptor { get; }
-
-        public bool Writable => false;
-
-        public bool Readable => true;
-
-        public IEnumerable<object> Attributes { get; }
-
-        public string Name { get; }
-
-        private readonly Func<object> Getter = null;
-        public object GetValue(object owner)
-        {
-            return Getter?.Invoke() ?? null;
-        }
-
-        public void SetValue(object owner, object value)
-        {
-        }
-
-    }
-
-    static MetricInfo CreateDynamicMetric<T>(IMetricSource owner, MetricKind kind, Func<T> getter, string name, string groupName) where T : IConvertible
-    {
-        if (kind == MetricKind.Poll && getter == null)
-            throw new ArgumentNullException(nameof(getter));
-        var declaring = TypeData.GetTypeData(owner);
-        var descriptor = TypeData.FromType(typeof(T));
-        var metric = new MetricAttribute(name, group: groupName, kind: kind);
-        var mem = new MetricMemberData(declaring, descriptor, metric, () => getter());
-        var mi = new MetricInfo(mem, groupName, owner);
-        if (mi.Type == MetricType.Unknown)
-            throw new InvalidOperationException($"Unsupported metric type '{typeof(T)}'.");
-        return mi;
-    }
-
-
     public class DynamicMetricProvider : Instrument, IAdditionalMetricSources, IOnPollMetricsCallback
     {
         const string Group = "Dynamic Metric Test";
@@ -73,8 +23,8 @@ public class DynamicMetricTests
 
         public DynamicMetricProvider()
         {
-            PollMetric = CreateDynamicMetric(this, MetricKind.Poll, () => Counter, "Counter", Group);
-            PushMetric = CreateDynamicMetric<double>(this, MetricKind.Push, null, "Pusher", Group);
+            PollMetric = MetricManager.CreatePollMetric(this, () => Counter, "Counter", Group);
+            PushMetric = MetricManager.CreatePushMetric<double>(this, "Pusher", Group);
         }
 
         public void PushDouble(double value)
@@ -86,6 +36,10 @@ public class DynamicMetricTests
         {
             if (metrics.Contains(PollMetric))
                 Counter++;
+        }
+
+        public void OnSubscriptionsChanged(MetricInfo metric, int subscribers)
+        {
         }
     }
 
@@ -102,13 +56,30 @@ public class DynamicMetricTests
     }
 
     [Test]
+    public void TestNewMetric()
+    {
+        MetricManager.Reset();
+        using var session = Session.Create(SessionOptions.OverlayComponentSettings);
+        MetricInfo result = null;
+        void onNewMetric(MetricCreatedEventArgs args)
+        {
+            MetricManager.OnMetricCreated -= onNewMetric;
+            result = args.Metric;
+        }
+        var provider = new DynamicMetricProvider();
+        MetricManager.OnMetricCreated += onNewMetric;
+        var created = MetricManager.CreatePushMetric<double>(provider, "test", "group");
+        Assert.IsNotNull(created);
+        Assert.AreEqual(created, result);
+    }
+
+    [Test]
     public void TestDynamicMetrics()
     {
         MetricManager.Reset();
         using var session = Session.Create(SessionOptions.OverlayComponentSettings);
         var dyn = new DynamicMetricProvider();
         InstrumentSettings.Current.Add(dyn);
-        var metrics = MetricManager.GetMetricInfos();
         var listener = new DynamicMetricListener();
         MetricManager.Subscribe(listener, new[] { dyn.PushMetric });
         Assert.AreEqual(null, listener.LastMetric);
