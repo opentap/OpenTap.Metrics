@@ -7,13 +7,13 @@ using System;
 namespace OpenTap.Metrics;
 
 /// <summary>  A string metric. </summary>
-public class StringMetric : IMetric
+public readonly struct StringMetric : IMetric
 {
     /// <summary> The metric information. </summary>
     public MetricInfo Info { get; }
 
     /// <summary> The value of the metric. </summary>
-    public object Value { get; }
+    public string Value { get; }
 
     /// <summary> The time the metric was recorded. </summary>
     public DateTime Time { get; }
@@ -31,4 +31,6 @@ public class StringMetric : IMetric
     {
         return $"{Info.MetricFullName}: {Value} at {Time}";
     }
+
+    object IMetric.Value => Value;
 }
