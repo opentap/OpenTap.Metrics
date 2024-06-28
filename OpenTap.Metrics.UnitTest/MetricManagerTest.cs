@@ -144,26 +144,26 @@ public class MetricManagerTest
         metrics = MetricManager.GetMetricInfos().ToArray();
 
         Assert.IsFalse(metrics.Any(m => m.MetricFullName == "INST / v"));
-    } 
-    
+    }
+
     [Test]
     public void TestHasInterest()
     {
         MetricManager.Reset();
         CompareMetricLists(MetricManager.GetMetricInfos(), MetricManager.GetMetricInfos());
 
-        var allMetrics = MetricManager.GetMetricInfos().ToArray();
+        var allMetrics = MetricManager.GetMetricInfos().Where(m => m.Kind.HasFlag(MetricKind.Poll)).ToArray();
         var listener = new TestMetricsListener();
-        
-        MetricManager.Subscribe(listener, allMetrics); 
+
+        MetricManager.Subscribe(listener, allMetrics);
 
         var returned = MetricManager.PollMetrics(allMetrics).ToArray();
-        Assert.AreEqual(returned.Length, allMetrics.Length); 
+        Assert.AreEqual(returned.Length, allMetrics.Length);
 
         {
             var listener2 = new TestMetricsListener();
             MetricManager.Subscribe(listener2, allMetrics);
-            
+
             // Verify that all metrics are currently of interest
             foreach (var m in allMetrics)
             {
@@ -177,9 +177,9 @@ public class MetricManagerTest
             {
                 Assert.IsTrue(MetricManager.HasInterest(m));
             }
-            
+
             MetricManager.Subscribe(listener2, Array.Empty<MetricInfo>());
-            
+
             // Verify that no metrics are of interest
             foreach (var m in allMetrics)
             {
@@ -202,7 +202,7 @@ public class MetricManagerTest
             Assert.AreEqual(1, managerInfo.Length);
         }
     }
-    
+
     static void CompareMetricLists(IEnumerable<MetricInfo> left, IEnumerable<MetricInfo> right)
     {
         MetricInfo[] a1 = left.OrderBy(m => m.GetHashCode()).ToArray();

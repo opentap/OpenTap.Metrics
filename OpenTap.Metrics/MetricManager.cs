@@ -22,20 +22,20 @@ public static class MetricManager
     {
         _interestLookup.Clear();
         _metricProducers.Clear();
-    } 
+    }
 
     private static readonly ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>> _interestLookup =
         new ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>>();
-    
+
     /// <summary>
-    /// Subscribe to the given set of push metrics. When called again, this updates the interest set of the listener.
+    /// Subscribe to the given set of push metrics. When called again, this overwrites the interest set of the listener.
     /// </summary>
     /// <param name="listener">The listener to subscribe.</param>
     /// <param name="interest">The set of metric infos of interest.</param>
     public static void Subscribe(IMetricListener listener, IEnumerable<MetricInfo> interest)
     {
         _interestLookup[listener] = interest.ToHashSet();
-    } 
+    }
 
     /// <summary> Unsubscribe from push metrics. </summary>
     /// <param name="listener">The lsitener to unsubscribe.</param>
@@ -46,7 +46,7 @@ public static class MetricManager
 
     /// <summary> Returns true if a metric has interest. </summary>
     public static bool HasInterest(MetricInfo metric) => _interestLookup.Values.Any(x => x.Contains(metric));
-        
+
     /// <summary> Get information about the metrics available to query. </summary>
     /// <returns></returns>
     public static IEnumerable<MetricInfo> GetMetricInfos()
@@ -61,7 +61,7 @@ public static class MetricManager
                 continue;
             if (type.DescendsTo(typeof(ComponentSettings)))
             {
-                if(ComponentSettings.GetCurrent(type) is IMetricSource producer)
+                if (ComponentSettings.GetCurrent(type) is IMetricSource producer)
                     producers.Add(producer);
             }
             else
@@ -75,14 +75,14 @@ public static class MetricManager
         {
 
             var type1 = TypeData.GetTypeData(metricSource);
-                
+
             string sourceName = (metricSource as IResource)?.Name ?? type1.GetDisplayAttribute().Name;
             var memberGrp = type1.GetMembers()
                 .Where(member => member.HasAttribute<MetricAttribute>() && TypeIsSupported(member.TypeDescriptor))
                 .ToLookup(type2 => type2.GetAttribute<MetricAttribute>().Group ?? sourceName);
             foreach (var member in memberGrp)
             {
-                foreach(var mem in member)
+                foreach (var mem in member)
                     yield return new MetricInfo(mem, member.Key, metricSource);
             }
             if (metricSource is IAdditionalMetricSources source2)
@@ -92,7 +92,7 @@ public static class MetricManager
             }
         }
     }
-        
+
     /// <summary> For now only string, double, int, and bool type are supported. </summary>
     /// <param name="td"></param>
     /// <returns></returns>
@@ -110,7 +110,7 @@ public static class MetricManager
     {
         PushMetric(new DoubleMetric(metric, value));
     }
-        
+
     /// <summary> Push a boolean metric. </summary>
     public static void PushMetric(MetricInfo metric, bool value)
     {
@@ -121,7 +121,7 @@ public static class MetricManager
     {
         PushMetric(new StringMetric(metric, value));
     }
-        
+
     /// <summary>
     /// Push a non-specific metric. This method is private to avoid pushing any kind of metric.
     /// </summary>
@@ -134,14 +134,13 @@ public static class MetricManager
                 consumer.OnPushMetric(metric);
         }
     }
-        
+
     static readonly TraceSource log = Log.CreateSource(nameof(MetricManager));
 
     /// <summary> Poll metrics. </summary>
     public static IEnumerable<IMetric> PollMetrics(IEnumerable<MetricInfo> interestSet)
     {
         var interest = interestSet.Where(i => i.Kind.HasFlag(MetricKind.Poll)).ToHashSet();
-        interest.RemoveWhere(i => !i.Kind.HasFlag(MetricKind.Poll));
         
         foreach (var source in interest.GroupBy(i => i.Source))
         {
@@ -181,7 +180,7 @@ public static class MetricManager
             }
         }
     }
-         
+
     /// <summary> Get metric information from the system. </summary>
     public static MetricInfo GetMetricInfo(object source, string member)
     {
@@ -196,5 +195,34 @@ public static class MetricManager
             }
         }
         return null;
+    }
+
+    public delegate void MetricCreatedEventHandler(MetricCreatedEventArgs args);
+    public static event MetricCreatedEventHandler OnMetricCreated;
+
+    private static MetricInfo CreateMetric<T>(IAdditionalMetricSources owner, string name, string groupName, MetricKind kind, Func<T> getter = null)
+    {
+        var declaring = TypeData.GetTypeData(owner);
+        var descriptor = TypeData.FromType(typeof(T));
+        var metric = new MetricAttribute(name, group: groupName, kind: kind);
+        var mem = new MetricMemberData(declaring, descriptor, metric, () => getter());
+        var mi = new MetricInfo(mem, groupName, owner);
+        if (mi.Type == MetricType.Unknown)
+            throw new InvalidOperationException($"Unsupported metric type '{typeof(T)}'.");
+        // Notify listeners that a new metric has been created so they can subscribe to it.
+        OnMetricCreated?.Invoke(new MetricCreatedEventArgs(mi));
+        return mi;
+    }
+
+    public static MetricInfo CreatePollMetric<T>(IAdditionalMetricSources owner, Func<T> getter, string name, string groupName) where T : IConvertible
+    {
+        if (getter == null)
+            throw new ArgumentNullException(nameof(getter));
+        return CreateMetric<T>(owner, name, groupName, MetricKind.Poll, getter);
+    }
+
+    public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName) where T : IConvertible
+    {
+        return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
     }
 }
