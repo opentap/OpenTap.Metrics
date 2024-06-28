@@ -141,8 +141,7 @@ public static class MetricManager
     public static IEnumerable<IMetric> PollMetrics(IEnumerable<MetricInfo> interestSet)
     {
         var interest = interestSet.Where(i => i.Kind.HasFlag(MetricKind.Poll)).ToHashSet();
-        interest.RemoveWhere(i => !i.Kind.HasFlag(MetricKind.Poll));
-
+        
         foreach (var source in interest.GroupBy(i => i.Source))
         {
             if (source.Key is IOnPollMetricsCallback producer)
