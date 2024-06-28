@@ -6,7 +6,10 @@ using System.Collections.Generic;
 
 namespace OpenTap.Metrics;
 
+/// <summary> Defines a class which can provide additional metrics. </summary>
 public interface IAdditionalMetricSources : IMetricSource
 {
-    IEnumerable<MetricInfo> AdditionalMetrics { get; } 
+    /// <summary> The list of metrics provided by this class. 
+    /// This value is read every time the set of available metrics is queried in MetricManager. </summary>
+    IEnumerable<MetricInfo> AdditionalMetrics { get; }
 }
