@@ -200,12 +200,12 @@ public static class MetricManager
     public delegate void MetricCreatedEventHandler(MetricCreatedEventArgs args);
     public static event MetricCreatedEventHandler OnMetricCreated;
 
-    private static MetricInfo CreateMetric<T>(IAdditionalMetricSources owner, string name, string groupName, MetricKind kind, Func<T> getter = null)
+    private static MetricInfo CreateMetric<T>(IAdditionalMetricSources owner, string name, string groupName, MetricKind kind, Func<T> pollFunction = null)
     {
         var declaring = TypeData.GetTypeData(owner);
         var descriptor = TypeData.FromType(typeof(T));
         var metric = new MetricAttribute(name, group: groupName, kind: kind);
-        var mem = new MetricMemberData(declaring, descriptor, metric, () => getter());
+        var mem = new MetricMemberData(declaring, descriptor, metric, () => pollFunction());
         var mi = new MetricInfo(mem, groupName, owner);
         if (mi.Type == MetricType.Unknown)
             throw new InvalidOperationException($"Unsupported metric type '{typeof(T)}'.");
@@ -214,11 +214,11 @@ public static class MetricManager
         return mi;
     }
 
-    public static MetricInfo CreatePollMetric<T>(IAdditionalMetricSources owner, Func<T> getter, string name, string groupName) where T : IConvertible
+    public static MetricInfo CreatePollMetric<T>(IAdditionalMetricSources owner, Func<T> pollFunction, string name, string groupName) where T : IConvertible
     {
-        if (getter == null)
-            throw new ArgumentNullException(nameof(getter));
-        return CreateMetric<T>(owner, name, groupName, MetricKind.Poll, getter);
+        if (pollFunction == null)
+            throw new ArgumentNullException(nameof(pollFunction));
+        return CreateMetric<T>(owner, name, groupName, MetricKind.Poll, pollFunction);
     }
 
     public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName) where T : IConvertible
