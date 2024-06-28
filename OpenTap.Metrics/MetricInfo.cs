@@ -59,6 +59,10 @@ public class MetricInfo
         {
             Type = MetricType.Boolean;
         }
+        else
+        {
+            Type = MetricType.Unknown;
+        }
 
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
         Source = source;
