@@ -37,10 +37,6 @@ public class DynamicMetricTests
             if (metrics.Contains(PollMetric))
                 Counter++;
         }
-
-        public void OnSubscriptionsChanged(MetricInfo metric, int subscribers)
-        {
-        }
     }
 
     public class DynamicMetricListener : IMetricListener
