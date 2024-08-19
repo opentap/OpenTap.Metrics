@@ -24,7 +24,7 @@ jobs:
       # The get-gitversion action installs OpenTAP and fetches with fetch-depth: 0
       - name: GitVersion
         id: gitversion
-        uses: opentap/get-gitversion@v1.1
+        uses: opentap/get-gitversion@main
 
   Build:
     runs-on:
