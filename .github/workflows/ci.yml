@@ -11,10 +11,6 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_CONSOLE_ANSI_COLOR: true
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   GetVersion:
     runs-on:
