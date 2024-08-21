@@ -11,12 +11,16 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_CONSOLE_ANSI_COLOR: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   GetVersion:
     runs-on:
        group: OpenTAP-SpokeVPC
        labels:  [Linux, X64]
-    container: mcr.microsoft.com/dotnet/sdk:8.0
+    container: ghcr.io/opentap/oci-images/build-dotnet:latest
     outputs:
       ShortVersion: ${{ steps.gitversion.outputs.ShortVersion }}
       GitVersion: ${{ steps.gitversion.outputs.GitVersion }}
@@ -30,7 +34,7 @@ jobs:
     runs-on:
        group: OpenTAP-SpokeVPC
        labels:  [Linux, X64]
-    container: mcr.microsoft.com/dotnet/sdk:8.0
+    container: ghcr.io/opentap/oci-images/build-dotnet:latest
     needs: GetVersion
     env:
       ShortVersion: ${{ needs.GetVersion.outputs.ShortVersion }}
@@ -80,7 +84,7 @@ jobs:
     runs-on:
        group: OpenTAP-SpokeVPC
        labels:  [Linux, X64]
-    container: mcr.microsoft.com/dotnet/sdk:8.0
+    container: ghcr.io/opentap/oci-images/build-dotnet:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -99,7 +103,7 @@ jobs:
     runs-on:
        group: OpenTAP-SpokeVPC
        labels:  [Linux, X64]
-    container: mcr.microsoft.com/dotnet/sdk:8.0
+    container: ghcr.io/opentap/oci-images/build-dotnet:latest
     needs: Build
     steps:
       - name: Download binaries
