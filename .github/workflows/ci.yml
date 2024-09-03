@@ -64,7 +64,7 @@ jobs:
           TAP_SIGN_CERT: ${{ github.workspace }}/sign.cer
           KS8500_REPO_TOKEN: ${{ secrets.KS8500_REPO_TOKEN }}
           DOTFUSCATOR_VERSION: "2.0.2-beta.6+11a5bc9a"
-          SIGN_VERSION: "1.5.0-alpha.4.9+6a5355a8.sign-apple-apps"
+          SIGN_VERSION: "1.4.0"
       # Upload the package so it can be downloaded from GitHub, 
       # and consumed by other steps in this workflow
       
