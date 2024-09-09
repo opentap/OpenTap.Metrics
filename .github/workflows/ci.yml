@@ -63,7 +63,7 @@ jobs:
           TAP_SIGN_AUTH: ${{ secrets.TAP_SIGN_AUTH }}
           TAP_SIGN_CERT: ${{ github.workspace }}/sign.cer
           KS8500_REPO_TOKEN: ${{ secrets.KS8500_REPO_TOKEN }}
-          SIGN_VERSION: "1.4.0"
+          SIGN_VERSION: "1.5.0-beta.7+8118ecec"
       # Upload the package so it can be downloaded from GitHub, 
       # and consumed by other steps in this workflow
       
@@ -109,8 +109,8 @@ jobs:
       - name: Setup OpenTAP
         uses: opentap/setup-opentap@main
         with:
-          version: 9.23.0
-          packages: 'Repository Client:1.0'
+          version: 9.25.1
+          packages: 'Repository Client:1.0.3-beta.2+a72735c4'
       
       - name: Publish Packages
         run: tap repo upload --repository https://packages.opentap.io --token ${{ secrets.PUBLIC_REPO_TOKEN }} *.TapPackage
