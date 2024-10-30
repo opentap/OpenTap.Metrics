@@ -99,7 +99,12 @@ public static class MetricManager
     static bool TypeIsSupported(ITypeData td)
     {
         var type = td.AsTypeData().Type;
-        return type == typeof(double) || type == typeof(bool) || type == typeof(int) || type == typeof(string);
+
+        var isSupportedDoubleType = type == typeof(double) || type == typeof(double?);
+        var isSupportedBoolType = type == typeof(bool) || type == typeof(bool?);
+        var isSupportedIntType = type == typeof(int) || type == typeof(int?);
+
+        return isSupportedDoubleType || isSupportedBoolType || isSupportedIntType || type == typeof(string);
     }
 
     private static readonly ConcurrentDictionary<ITypeData, IMetricSource> _metricProducers =
@@ -120,6 +125,12 @@ public static class MetricManager
     public static void PushMetric(MetricInfo metric, string value)
     {
         PushMetric(new StringMetric(metric, value));
+    }
+
+    /// <summary> Push an empty metric. </summary>
+    public static void PushMetric(MetricInfo metric)
+    {
+        PushMetric(new EmptyMetric(metric));
     }
 
     /// <summary>
@@ -173,6 +184,9 @@ public static class MetricManager
                     break;
                 case string v:
                     yield return new StringMetric(metric, v);
+                    break;
+                case null:
+                    yield return new EmptyMetric(metric);
                     break;
                 default:
                     log.ErrorOnce(metric, "Metric value is not a supported type: {0} of type {1}", metric.Name, metricValue?.GetType().Name ?? "null");

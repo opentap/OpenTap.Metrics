@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using NUnit.Framework;
+using NUnit.Framework.Internal;
 
 namespace OpenTap.Metrics.UnitTest;
 
@@ -20,11 +21,16 @@ public class TestMetricSource : IMetricSource
     [Unit("V")]
     public double Y { get; private set; }
 
+    [Metric]
+    [Unit("U")]
+    public double? Z { get; private set; }
+
     private int _offset = 0;
     public void PushMetric()
     {
         var xMetric = MetricManager.GetMetricInfo(this, nameof(X));
         var yMetric = MetricManager.GetMetricInfo(this, nameof(Y));
+        var zMetric = MetricManager.GetMetricInfo(this, nameof(Z));
         if (!MetricManager.HasInterest(xMetric)) return;
         for (int i = 0; i < 100; i++)
         {
@@ -32,8 +38,38 @@ public class TestMetricSource : IMetricSource
             X = _offset;
             MetricManager.PushMetric(xMetric, X);
             MetricManager.PushMetric(yMetric, Math.Sin(_offset * 0.1));
+
+            if (i % 20 == 0)
+                MetricManager.PushMetric(zMetric, 1);
+            else
+                MetricManager.PushMetric(zMetric);
         }
     }
+}
+
+[Display("Full Test Metric Producer")]
+public class FullMetricSource : IMetricSource
+{
+    [Metric]
+    public double DoubleMetric { get; private set; }
+
+    [Metric]
+    public double? DoubleMetricNull { get; private set; }
+
+    [Metric]
+    public bool BoolMetric { get; private set; }
+
+    [Metric]
+    public bool? BoolMetricNull { get; private set; }
+
+    [Metric]
+    public int IntMetric { get; private set; }
+
+    [Metric]
+    public int? IntMetricNull { get; private set; }
+
+    [Metric]
+    public string StringMetric { get; private set; }
 }
 
 [TestFixture]
@@ -147,6 +183,22 @@ public class MetricManagerTest
     }
 
     [Test]
+    public void TestMetricNames_MetricSource()
+    {
+        MetricManager.Reset();
+        var metricInfos = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).ToArray();
+
+        Assert.That(metricInfos, Has.Length.EqualTo(7));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.MetricFullName == "Full Test Metric Producer / DoubleMetric"));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.MetricFullName == "Full Test Metric Producer / DoubleMetricNull"));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.MetricFullName == "Full Test Metric Producer / BoolMetric"));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.MetricFullName == "Full Test Metric Producer / BoolMetricNull"));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.MetricFullName == "Full Test Metric Producer / IntMetric"));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.MetricFullName == "Full Test Metric Producer / IntMetricNull"));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.MetricFullName == "Full Test Metric Producer / StringMetric"));
+    }
+
+    [Test]
     public void TestHasInterest()
     {
         MetricManager.Reset();
@@ -201,6 +253,30 @@ public class MetricManagerTest
                 currentMetricInfo.Equals(m)).ToArray();
             Assert.AreEqual(1, managerInfo.Length);
         }
+    }
+
+    [Test]
+    public void TestHasInterest_MetricSource()
+    {
+        MetricManager.Reset();
+        var metricInfos = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).ToArray();
+        var listener = new TestMetricsListener();
+        MetricManager.Subscribe(listener, metricInfos);
+        var listener2 = new TestMetricsListener();
+        MetricManager.Subscribe(listener2, metricInfos);
+
+        var returned = MetricManager.PollMetrics(metricInfos).ToArray();
+
+        Assert.That(metricInfos, Has.Length.EqualTo(7));
+        Assert.That(returned, Has.Length.EqualTo(metricInfos.Length));
+        // Verify that all metrics are currently of interest
+        Assert.That(metricInfos.Select(MetricManager.HasInterest), Has.All.True);
+        MetricManager.Unsubscribe(listener);
+        // Verify that all metrics are still of interest
+        Assert.That(metricInfos.Select(MetricManager.HasInterest), Has.All.True);
+        MetricManager.Unsubscribe(listener2);
+        // Verify that no metrics are of interest
+        Assert.That(metricInfos.Select(MetricManager.HasInterest), Has.All.False);
     }
 
     static void CompareMetricLists(IEnumerable<MetricInfo> left, IEnumerable<MetricInfo> right)
