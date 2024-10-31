@@ -229,39 +229,15 @@ public static class MetricManager
         return mi;
     }
 
-    public static MetricInfo CreatePollMetric<T>(IAdditionalMetricSources owner, Func<T> pollFunction, string name, string groupName) where T : IConvertible
+    public static MetricInfo CreatePollMetric<T>(IAdditionalMetricSources owner, Func<T> pollFunction, string name, string groupName)
     {
         if (pollFunction == null)
             throw new ArgumentNullException(nameof(pollFunction));
         return CreateMetric<T>(owner, name, groupName, MetricKind.Poll, pollFunction);
     }
 
-    public static MetricInfo CreateNullablePollMetric<T>(IAdditionalMetricSources owner, Func<T> pollFunction, string name, string groupName)
-    {
-        if (pollFunction is null)
-            throw new ArgumentNullException(nameof(pollFunction));
-
-        EnsureNullableMetricIsValid<T>();
-        return CreateMetric(owner, name, groupName, MetricKind.Poll, pollFunction);
-    }
-
-    public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName) where T : IConvertible
+    public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName)
     {
         return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
-    }
-
-    public static MetricInfo CreateNullablePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName)
-    {
-        EnsureNullableMetricIsValid<T>();
-        return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
-    }
-
-    private static void EnsureNullableMetricIsValid<T>()
-    {
-        var underlyingType = Nullable.GetUnderlyingType(typeof(T));
-        if (underlyingType.GetInterface(nameof(IConvertible)) is null)
-        {
-            throw new InvalidOperationException($"Unsupported type '{typeof(T)}' is not a 'System.IConvertible' type");
-        }
     }
 }

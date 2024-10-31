@@ -50,8 +50,8 @@ public class DynamicMetricTests
 
         public DynamicNullableMetricProvider()
         {
-            PollMetric = MetricManager.CreateNullablePollMetric(this, () => Counter, "Counter", Group);
-            PushMetric = MetricManager.CreateNullablePushMetric<double?>(this, "Pusher", Group);
+            PollMetric = MetricManager.CreatePollMetric(this, () => Counter, "Counter", Group);
+            PushMetric = MetricManager.CreatePushMetric<double?>(this, "Pusher", Group);
         }
 
         public void PushDouble(double? value)
@@ -136,7 +136,7 @@ public class DynamicMetricTests
         }
         var provider = new DynamicNullableMetricProvider();
         MetricManager.OnMetricCreated += onNewMetric;
-        var created = MetricManager.CreateNullablePushMetric<double?>(provider, "test", "group");
+        var created = MetricManager.CreatePushMetric<double?>(provider, "test", "group");
         Assert.That(created, Is.Not.Null);
         Assert.That(result, Is.EqualTo(created));
     }
