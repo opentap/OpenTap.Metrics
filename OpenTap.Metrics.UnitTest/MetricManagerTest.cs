@@ -199,6 +199,22 @@ public class MetricManagerTest
     }
 
     [Test]
+    public void TestMetricTypes_MetricSource()
+    {
+        MetricManager.Reset();
+        var metricInfos = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).ToArray();
+
+        Assert.That(metricInfos, Has.Length.EqualTo(7));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.Name == "DoubleMetric" && m.Type.HasFlag(MetricType.Double)));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.Name == "DoubleMetricNull" && m.Type.HasFlag(MetricType.Double | MetricType.Nullable)));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.Name == "BoolMetric" && m.Type.HasFlag(MetricType.Boolean)));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.Name == "BoolMetricNull" && m.Type.HasFlag(MetricType.Boolean | MetricType.Nullable)));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.Name == "IntMetric" && m.Type.HasFlag(MetricType.Double)));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.Name == "IntMetricNull" && m.Type.HasFlag(MetricType.Double | MetricType.Nullable)));
+        Assert.That(metricInfos, Has.One.Matches<MetricInfo>(m => m.Name == "StringMetric" && m.Type.HasFlag(MetricType.String)));
+    }
+
+    [Test]
     public void TestHasInterest()
     {
         MetricManager.Reset();

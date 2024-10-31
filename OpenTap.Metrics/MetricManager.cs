@@ -185,7 +185,8 @@ public static class MetricManager
                 case string v:
                     yield return new StringMetric(metric, v);
                     break;
-                case null:
+                case null when metric.Type.HasFlag(MetricType.Nullable & MetricType.String):
+                    // String metrics does also support null values, but does not use the nullable flag.
                     yield return new EmptyMetric(metric);
                     break;
                 default:
@@ -221,7 +222,7 @@ public static class MetricManager
         var metric = new MetricAttribute(name, group: groupName, kind: kind);
         var mem = new MetricMemberData(declaring, descriptor, metric, () => pollFunction());
         var mi = new MetricInfo(mem, groupName, owner);
-        if (mi.Type == MetricType.Unknown)
+        if (mi.Type.Equals(MetricType.Unknown))
             throw new InvalidOperationException($"Unsupported metric type '{typeof(T)}'.");
         // Notify listeners that a new metric has been created so they can subscribe to it.
         OnMetricCreated?.Invoke(new MetricCreatedEventArgs(mi));
@@ -235,8 +236,32 @@ public static class MetricManager
         return CreateMetric<T>(owner, name, groupName, MetricKind.Poll, pollFunction);
     }
 
+    public static MetricInfo CreateNullablePollMetric<T>(IAdditionalMetricSources owner, Func<T> pollFunction, string name, string groupName)
+    {
+        if (pollFunction is null)
+            throw new ArgumentNullException(nameof(pollFunction));
+
+        EnsureNullableMetricIsValid<T>();
+        return CreateMetric(owner, name, groupName, MetricKind.Poll, pollFunction);
+    }
+
     public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName) where T : IConvertible
     {
         return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
+    }
+
+    public static MetricInfo CreateNullablePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName)
+    {
+        EnsureNullableMetricIsValid<T>();
+        return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
+    }
+
+    private static void EnsureNullableMetricIsValid<T>()
+    {
+        var underlyingType = Nullable.GetUnderlyingType(typeof(T));
+        if (underlyingType.GetInterface(nameof(IConvertible)) is null)
+        {
+            throw new InvalidOperationException($"Unsupported type '{typeof(T)}' is not a 'System.IConvertible' type");
+        }
     }
 }

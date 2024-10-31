@@ -46,24 +46,7 @@ public class MetricInfo
         Attributes = Member.Attributes.ToArray();
         var metricAttr = Attributes.OfType<MetricAttribute>().FirstOrDefault();
         Kind = metricAttr?.Kind ?? MetricKind.Poll;
-
-        if (mem.TypeDescriptor.IsNumeric())
-        {
-            Type = MetricType.Double;
-        }
-        else if (mem.TypeDescriptor.DescendsTo(typeof(string)))
-        {
-            Type = MetricType.String;
-        }
-        else if (mem.TypeDescriptor.DescendsTo(typeof(bool)))
-        {
-            Type = MetricType.Boolean;
-        }
-        else
-        {
-            Type = MetricType.Unknown;
-        }
-
+        Type = GetMetricType(mem);
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
         Source = source;
     }
@@ -120,5 +103,31 @@ public class MetricInfo
     public object GetValue(object metricSource)
     {
         return Member?.GetValue(metricSource);
+    }
+
+    /// <summary>
+    /// Gets the metric type for all supported types including nullable.
+    /// </summary>
+    private MetricType GetMetricType(IMemberData memberData)
+    {
+        return memberData.TypeDescriptor switch
+        {
+            var d when d.IsNumeric() => MetricType.Double,
+            var d when d.DescendsTo(typeof(string)) => MetricType.String,
+            var d when d.DescendsTo(typeof(bool)) => MetricType.Boolean,
+            var d when d.DescendsTo(typeof(Nullable<>)) => GetNullableMetricType(d),
+            _ => MetricType.Unknown
+        };
+
+        static MetricType GetNullableMetricType(ITypeData typeData)
+        {
+            var underlyingType = Nullable.GetUnderlyingType(typeData.AsTypeData().Type);
+            return underlyingType switch
+            {
+                var d when d.IsNumeric() => MetricType.Nullable | MetricType.Double,
+                var d when d == typeof(bool) => MetricType.Nullable | MetricType.Boolean,
+                _ => MetricType.Unknown
+            };
+        }
     }
 }

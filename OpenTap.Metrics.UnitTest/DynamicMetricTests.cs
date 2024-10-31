@@ -39,15 +39,43 @@ public class DynamicMetricTests
         }
     }
 
+    public class DynamicNullableMetricProvider : Instrument, IAdditionalMetricSources, IOnPollMetricsCallback
+    {
+        const string Group = "Dynamic Nullable Metric Test";
+        IEnumerable<MetricInfo> IAdditionalMetricSources.AdditionalMetrics => new[] { PollMetric, PushMetric };
+        public MetricInfo PollMetric { get; }
+        public MetricInfo PushMetric { get; }
+
+        public double? Counter { get; private set; } = 0;
+
+        public DynamicNullableMetricProvider()
+        {
+            PollMetric = MetricManager.CreateNullablePollMetric(this, () => Counter, "Counter", Group);
+            PushMetric = MetricManager.CreateNullablePushMetric<double?>(this, "Pusher", Group);
+        }
+
+        public void PushDouble(double? value)
+        {
+            if (value is null)
+                MetricManager.PushMetric(PushMetric);
+            else
+                MetricManager.PushMetric(PushMetric, value.Value);
+        }
+
+        public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
+        {
+            if (metrics.Contains(PollMetric))
+                Counter++;
+        }
+    }
+
     public class DynamicMetricListener : IMetricListener
     {
         public object LastMetric { get; private set; }
         public void OnPushMetric(IMetric table)
         {
-            if (table.Info.MetricFullName == "Dynamic Metric Test / Pusher")
-            {
+            if (table.Info.MetricFullName is "Dynamic Metric Test / Pusher" or "Dynamic Nullable Metric Test / Pusher")
                 LastMetric = table.Value;
-            }
         }
     }
 
@@ -92,6 +120,50 @@ public class DynamicMetricTests
             IMetric m = MetricManager.PollMetrics(new[] { dyn.PollMetric }).First();
             Assert.AreEqual(i, m.Value);
             Assert.AreEqual(i, dyn.Counter);
+        }
+    }
+
+    [Test]
+    public void TestNewMetric_Nullable()
+    {
+        MetricManager.Reset();
+        using var session = Session.Create(SessionOptions.OverlayComponentSettings);
+        MetricInfo result = null;
+        void onNewMetric(MetricCreatedEventArgs args)
+        {
+            MetricManager.OnMetricCreated -= onNewMetric;
+            result = args.Metric;
+        }
+        var provider = new DynamicNullableMetricProvider();
+        MetricManager.OnMetricCreated += onNewMetric;
+        var created = MetricManager.CreateNullablePushMetric<double?>(provider, "test", "group");
+        Assert.That(created, Is.Not.Null);
+        Assert.That(result, Is.EqualTo(created));
+    }
+
+    [Test]
+    public void TestDynamicMetrics_Nullable()
+    {
+        MetricManager.Reset();
+        using var session = Session.Create(SessionOptions.OverlayComponentSettings);
+        var provider = new DynamicNullableMetricProvider();
+        InstrumentSettings.Current.Add(provider);
+        var listener = new DynamicMetricListener();
+        MetricManager.Subscribe(listener, new[] { provider.PushMetric });
+        Assert.That(listener.LastMetric, Is.Null);
+
+        for (double i = 0; i < 10; i++)
+        {
+            provider.PushDouble(i);
+            Assert.That(listener.LastMetric, Is.EqualTo(i));
+        }
+
+        for (double i = 1; i < 10; i++)
+        {
+            // DynamicNullableMetricProvider is incrementing Counter whenever it is polled
+            IMetric m = MetricManager.PollMetrics(new[] { provider.PollMetric }).First();
+            Assert.That(m.Value, Is.EqualTo(i));
+            Assert.That(provider.Counter, Is.EqualTo(i));
         }
     }
 }
