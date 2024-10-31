@@ -185,7 +185,7 @@ public static class MetricManager
                 case string v:
                     yield return new StringMetric(metric, v);
                     break;
-                case null when metric.Type.HasFlag(MetricType.Nullable & MetricType.String):
+                case null when metric.Type.HasFlag(MetricType.Nullable) || metric.Type.HasFlag(MetricType.String):
                     // String metrics does also support null values, but does not use the nullable flag.
                     yield return new EmptyMetric(metric);
                     break;
