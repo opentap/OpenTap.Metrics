@@ -21,7 +21,7 @@ public class TestMetricSource : IMetricSource
     [Unit("V")]
     public double Y { get; private set; }
 
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     [Unit("U")]
     public double? Z { get; private set; }
 
@@ -42,7 +42,7 @@ public class TestMetricSource : IMetricSource
             if (i % 20 == 0)
                 MetricManager.PushMetric(zMetric, 1);
             else
-                MetricManager.PushMetric(zMetric);
+                MetricManager.UpdateAvailability(zMetric, false);
         }
     }
 }
@@ -50,25 +50,25 @@ public class TestMetricSource : IMetricSource
 [Display("Full Test Metric Producer")]
 public class FullMetricSource : IMetricSource
 {
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     public double DoubleMetric { get; private set; }
 
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     public double? DoubleMetricNull { get; private set; }
 
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     public bool BoolMetric { get; private set; }
 
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     public bool? BoolMetricNull { get; private set; }
 
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     public int IntMetric { get; private set; }
 
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     public int? IntMetricNull { get; private set; }
 
-    [Metric]
+    [Metric(kind: MetricKind.PushPoll)]
     public string StringMetric { get; private set; }
 }
 
@@ -215,20 +215,27 @@ public class MetricManagerTest
     }
 
     [Test]
-    public void TestMetricAvailability_MetricSource()
+    public void TestMetricAvailability_MetricSource_Poll()
     {
         MetricManager.Reset();
         var interestSet = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).ToArray();
         var metricInfos = MetricManager.PollMetrics(interestSet).ToArray();
 
         Assert.That(metricInfos, Has.Length.EqualTo(7));
-        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "DoubleMetric" && m.Info.IsAvailable));
-        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "DoubleMetricNull" && !m.Info.IsAvailable));
-        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "BoolMetric" && m.Info.IsAvailable));
-        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "BoolMetricNull" && !m.Info.IsAvailable));
-        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "IntMetric" && m.Info.IsAvailable));
-        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "IntMetricNull" && !m.Info.IsAvailable));
-        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "StringMetric" && !m.Info.IsAvailable));
+        Assert.That(metricInfos.Select(m => m.Info.IsAvailable), Is.All.True);
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, true)]
+    public void TestMetricAvailability_MetricSource_Push(bool isAvailable, bool expected)
+    {
+        MetricManager.Reset();
+        var metricInfos = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).ToArray();
+        foreach (var metric in metricInfos)
+            MetricManager.UpdateAvailability(metric, isAvailable);
+
+        Assert.That(metricInfos, Has.Length.EqualTo(7));
+        Assert.That(metricInfos.Select(m => m.IsAvailable), Is.All.EqualTo(expected));
     }
 
     [Test]

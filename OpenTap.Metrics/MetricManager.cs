@@ -127,10 +127,18 @@ public static class MetricManager
         PushMetric(new StringMetric(metric, value));
     }
 
-    /// <summary> Push an empty metric. </summary>
-    public static void PushMetric(MetricInfo metric)
+    /// <summary>
+    /// Update the availability of a metric.
+    /// </summary>
+    /// <param name="metric"></param>
+    /// <param name="isAvailable"></param>
+    /// <exception cref="ArgumentException"></exception>
+    public static void UpdateAvailability(MetricInfo metric, bool isAvailable)
     {
-        PushMetric(new EmptyMetric(metric));
+        if (!metric.Kind.HasFlag(MetricKind.Push))
+            throw new ArgumentException("Cannot update availability of a poll metric.", nameof(metric));
+
+        UpdateMetricAvailability(metric, isAvailable);
     }
 
     /// <summary>
@@ -174,24 +182,19 @@ public static class MetricManager
             switch (metricValue)
             {
                 case bool v:
-                    TryIndicateMetricAvailable(metric);
                     yield return new BooleanMetric(metric, v);
                     break;
                 case double v:
-                    TryIndicateMetricAvailable(metric);
                     yield return new DoubleMetric(metric, v);
                     break;
                 case int v:
-                    TryIndicateMetricAvailable(metric);
                     yield return new DoubleMetric(metric, v);
                     break;
                 case string v:
-                    TryIndicateMetricAvailable(metric);
                     yield return new StringMetric(metric, v);
                     break;
                     // String metrics does also support null values, but does not use the nullable flag.
                 case null when metric.Type.HasFlag(MetricType.Nullable) || metric.Type.HasFlag(MetricType.String):
-                    TryIndicateMetricUnavailable(metric);
                     yield return new EmptyMetric(metric);
                     break;
                 default:
@@ -249,21 +252,9 @@ public static class MetricManager
     public delegate void MetricAvailabilityChangedEventHandler(MetricAvailabilityChangedEventsArgs args);
     public static event MetricAvailabilityChangedEventHandler OnMetricAvailabilityChanged;
 
-    private static void TryIndicateMetricAvailable(MetricInfo metricInfo)
+    private static void UpdateMetricAvailability(MetricInfo metricInfo, bool isAvailable)
     {
-        if (metricInfo.IsAvailable)
-            return;
-
-        metricInfo.IsAvailable = true;
-        OnMetricAvailabilityChanged?.Invoke(new MetricAvailabilityChangedEventsArgs(metricInfo));
-    }
-
-    private static void TryIndicateMetricUnavailable(MetricInfo metricInfo)
-    {
-        if (!metricInfo.IsAvailable)
-            return;
-
-        metricInfo.IsAvailable = false;
+        metricInfo.IsAvailable = isAvailable;
         OnMetricAvailabilityChanged?.Invoke(new MetricAvailabilityChangedEventsArgs(metricInfo));
     }
 }

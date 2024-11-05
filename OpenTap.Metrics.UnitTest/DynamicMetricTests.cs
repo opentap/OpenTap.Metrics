@@ -45,34 +45,31 @@ public class DynamicMetricTests
         IEnumerable<MetricInfo> IAdditionalMetricSources.AdditionalMetrics => new[] { PollMetric, PushMetric };
         public MetricInfo PollMetric { get; }
         public MetricInfo PushMetric { get; }
-        public double? Counter { get; private set; } = null;
+        public double? Counter { get; private set; } = 0;
 
-        private readonly bool _pollNull;
-
-        public DynamicNullableMetricProvider(bool pollNull)
+        public DynamicNullableMetricProvider()
         {
             PollMetric = MetricManager.CreatePollMetric(this, () => Counter, "Counter", Group);
             PushMetric = MetricManager.CreatePushMetric<double?>(this, "Pusher", Group);
-            _pollNull = pollNull;
         }
 
         public void PushDouble(double? value)
         {
             if (value is null)
-                MetricManager.PushMetric(PushMetric);
+            {
+                MetricManager.UpdateAvailability(PushMetric, false);
+            }
             else
+            {
                 MetricManager.PushMetric(PushMetric, value.Value);
+                MetricManager.UpdateAvailability(PushMetric, true);
+            }
         }
 
         public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
         {
             if (metrics.Contains(PollMetric))
-            {
-                if (_pollNull)
-                    Counter = null;
-                else
-                    Counter = Counter is null ? 1 : Counter += 1;
-            }
+                Counter++;
         }
     }
 
@@ -141,7 +138,7 @@ public class DynamicMetricTests
             MetricManager.OnMetricCreated -= onNewMetric;
             result = args.Metric;
         }
-        var provider = new DynamicNullableMetricProvider(pollNull: false);
+        var provider = new DynamicNullableMetricProvider();
         MetricManager.OnMetricCreated += onNewMetric;
         var created = MetricManager.CreatePushMetric<double?>(provider, "test", "group");
         Assert.That(created, Is.Not.Null);
@@ -153,7 +150,7 @@ public class DynamicMetricTests
     {
         MetricManager.Reset();
         using var session = Session.Create(SessionOptions.OverlayComponentSettings);
-        var provider = new DynamicNullableMetricProvider(pollNull: false);
+        var provider = new DynamicNullableMetricProvider();
         InstrumentSettings.Current.Add(provider);
         var listener = new DynamicMetricListener();
         MetricManager.Subscribe(listener, new[] { provider.PushMetric });
@@ -174,32 +171,30 @@ public class DynamicMetricTests
         }
     }
 
-    [Test]
-    public void TestDynamicMetricsUnavailability()
+    [TestCase(null, false)]
+    [TestCase(1.0, true)]
+    public void TestDynamicMetricsAvailability(double? value, bool isAvailable)
     {
         MetricManager.Reset();
-        var provider = new DynamicNullableMetricProvider(pollNull: true);
+        var provider = new DynamicNullableMetricProvider();
         MetricInfo result = null;
         void onMetricAvailabilityChanged(MetricAvailabilityChangedEventsArgs args) { result = args.Metric; }
         MetricManager.OnMetricAvailabilityChanged += onMetricAvailabilityChanged;
 
-        IMetric m = MetricManager.PollMetrics(new[] { provider.PollMetric }).First();
-        Assert.That(m.Info.IsAvailable, Is.False);
+        provider.PushDouble(value);
+
+        Assert.That(result.IsAvailable, Is.EqualTo(isAvailable));
         MetricManager.OnMetricAvailabilityChanged -= onMetricAvailabilityChanged;
     }
 
-    [Test]
-    public void TestDynamicMetricsAvailability()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void TestDynamicMetricsAvailability_PollMetric_Exception(bool isAvailable)
     {
-        MetricManager.Reset();
-        var provider = new DynamicNullableMetricProvider(pollNull: false);
-        MetricInfo result = null;
-        void onMetricAvailabilityChanged(MetricAvailabilityChangedEventsArgs args) { result = args.Metric; }
-        MetricManager.OnMetricAvailabilityChanged += onMetricAvailabilityChanged;
+        var provider = new DynamicNullableMetricProvider();
 
-        IMetric m = MetricManager.PollMetrics(new[] { provider.PollMetric }).First();
-        Assert.That(m.Info.IsAvailable, Is.True);
-        MetricManager.OnMetricAvailabilityChanged -= onMetricAvailabilityChanged;
+        var ex = Assert.Throws<ArgumentException>(() => MetricManager.UpdateAvailability(provider.PollMetric, isAvailable));
+
+        Assert.That(ex.Message, Is.EqualTo("Cannot update availability of a poll metric. (Parameter 'metric')"));
     }
 }
-
