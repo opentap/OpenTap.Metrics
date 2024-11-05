@@ -369,4 +369,31 @@ public class MetricManagerTest
         var results2 = listener.MetricValues.ToArray();
         Assert.AreEqual(0, results2.Length);
     }
+
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    public void TestPushMetricRetainAvailability_WhenMetricInfoIsRetrieved(bool isAvailable, bool expected)
+    {
+        MetricManager.Reset();
+        var source = new FullMetricSource();
+        var metricInfo = MetricManager.GetMetricInfo(source, nameof(source.DoubleMetric));
+        MetricManager.UpdateAvailability(metricInfo, isAvailable);
+
+        metricInfo = MetricManager.GetMetricInfo(source, nameof(source.DoubleMetric));
+
+        Assert.That(metricInfo.IsAvailable, Is.EqualTo(expected));
+    }
+
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    public void TestPushMetricRetainAvailability_WhenMetricInfosAreRetrieved(bool isAvailable, bool expected)
+    {
+        MetricManager.Reset();
+        var metricInfo = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).First(m => m.Name == nameof(FullMetricSource.DoubleMetric));
+        MetricManager.UpdateAvailability(metricInfo, isAvailable);
+
+        metricInfo = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).First(m => m.Name == nameof(FullMetricSource.DoubleMetric));
+
+        Assert.That(metricInfo.IsAvailable, Is.EqualTo(expected));
+    }
 }

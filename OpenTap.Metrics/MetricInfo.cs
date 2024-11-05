@@ -21,7 +21,7 @@ public class MetricInfo
     public MetricType Type { get; }
 
     /// <summary> The metric member object. </summary>
-    IMemberData Member { get; }
+    internal IMemberData Member { get; }
 
     /// <summary> The attributes of the metric. </summary>
     public IEnumerable<object> Attributes { get; }
@@ -35,7 +35,7 @@ public class MetricInfo
     /// <summary> The name of the metric. </summary>
     public string Name { get; }
 
-    /// <summary> Indicates if the metric is available for polling. </summary>
+    /// <summary> Indicates if the metric is available. </summary>
     public bool IsAvailable { get; internal set; }
 
     /// <summary> Creates a new metric info based on a member name. </summary>
@@ -89,7 +89,8 @@ public class MetricInfo
             return string.Equals(GroupName, o.GroupName, StringComparison.Ordinal) &&
                    string.Equals(Name, o.Name, StringComparison.Ordinal) &&
                    Equals(Member, o.Member) &&
-                   Equals(Source, o.Source);
+                   Equals(Source, o.Source) &&
+                   Equals(IsAvailable, o.IsAvailable);
 
         return false;
     }

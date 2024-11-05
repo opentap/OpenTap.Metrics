@@ -22,10 +22,16 @@ public static class MetricManager
     {
         _interestLookup.Clear();
         _metricProducers.Clear();
+        _pushMetricInfos.Clear();
     }
 
     private static readonly ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>> _interestLookup =
         new ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>>();
+
+    /// <summary>
+    /// Used for recreating push metrics infos to keep track of their availability.
+    /// </summary>
+    private static readonly ConcurrentDictionary<IMemberData, MetricInfo> _pushMetricInfos = new();
 
     /// <summary>
     /// Subscribe to the given set of push metrics. When called again, this overwrites the interest set of the listener.
@@ -83,7 +89,15 @@ public static class MetricManager
             foreach (var member in memberGrp)
             {
                 foreach (var mem in member)
+                {
+                    if (_pushMetricInfos.TryGetValue(mem, out var existingMetricInfo))
+                    {
+                        yield return existingMetricInfo;
+                        continue;
+                    }
+
                     yield return new MetricInfo(mem, member.Key, metricSource);
+                }
             }
             if (metricSource is IAdditionalMetricSources source2)
             {
@@ -213,8 +227,11 @@ public static class MetricManager
         {
             if (TypeIsSupported(mem.TypeDescriptor))
             {
-                return new MetricInfo(mem,
-                    metric.Group ?? (source as IResource)?.Name ?? type.GetDisplayAttribute()?.Name, source);
+                if (metric.Kind.HasFlag(MetricKind.Push) && _pushMetricInfos.TryGetValue(mem, out var existingMetricInfo))
+                    return existingMetricInfo;
+
+                var groupName = metric.Group ?? (source as IResource)?.Name ?? type.GetDisplayAttribute()?.Name;
+                return new MetricInfo(mem, groupName, source);
             }
         }
         return null;
@@ -234,6 +251,10 @@ public static class MetricManager
             throw new InvalidOperationException($"Unsupported metric type '{typeof(T)}'.");
         // Notify listeners that a new metric has been created so they can subscribe to it.
         OnMetricCreated?.Invoke(new MetricCreatedEventArgs(mi));
+
+        if (kind.HasFlag(MetricKind.Push))
+            _pushMetricInfos[mem] = mi;
+
         return mi;
     }
 
@@ -256,5 +277,6 @@ public static class MetricManager
     {
         metricInfo.IsAvailable = isAvailable;
         OnMetricAvailabilityChanged?.Invoke(new MetricAvailabilityChangedEventsArgs(metricInfo));
+        _pushMetricInfos[metricInfo.Member] = metricInfo;
     }
 }
