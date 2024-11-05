@@ -215,6 +215,23 @@ public class MetricManagerTest
     }
 
     [Test]
+    public void TestMetricAvailability_MetricSource()
+    {
+        MetricManager.Reset();
+        var interestSet = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).ToArray();
+        var metricInfos = MetricManager.PollMetrics(interestSet).ToArray();
+
+        Assert.That(metricInfos, Has.Length.EqualTo(7));
+        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "DoubleMetric" && m.Info.IsAvailable));
+        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "DoubleMetricNull" && !m.Info.IsAvailable));
+        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "BoolMetric" && m.Info.IsAvailable));
+        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "BoolMetricNull" && !m.Info.IsAvailable));
+        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "IntMetric" && m.Info.IsAvailable));
+        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "IntMetricNull" && !m.Info.IsAvailable));
+        Assert.That(metricInfos, Has.One.Matches<IMetric>(m => m.Info.Name == "StringMetric" && !m.Info.IsAvailable));
+    }
+
+    [Test]
     public void TestHasInterest()
     {
         MetricManager.Reset();

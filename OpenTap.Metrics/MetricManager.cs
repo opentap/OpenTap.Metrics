@@ -174,19 +174,24 @@ public static class MetricManager
             switch (metricValue)
             {
                 case bool v:
+                    TryIndicateMetricAvailable(metric);
                     yield return new BooleanMetric(metric, v);
                     break;
                 case double v:
+                    TryIndicateMetricAvailable(metric);
                     yield return new DoubleMetric(metric, v);
                     break;
                 case int v:
+                    TryIndicateMetricAvailable(metric);
                     yield return new DoubleMetric(metric, v);
                     break;
                 case string v:
+                    TryIndicateMetricAvailable(metric);
                     yield return new StringMetric(metric, v);
                     break;
-                case null when metric.Type.HasFlag(MetricType.Nullable) || metric.Type.HasFlag(MetricType.String):
                     // String metrics does also support null values, but does not use the nullable flag.
+                case null when metric.Type.HasFlag(MetricType.Nullable) || metric.Type.HasFlag(MetricType.String):
+                    TryIndicateMetricUnavailable(metric);
                     yield return new EmptyMetric(metric);
                     break;
                 default:
@@ -239,5 +244,26 @@ public static class MetricManager
     public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName)
     {
         return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
+    }
+
+    public delegate void MetricAvailabilityChangedEventHandler(MetricAvailabilityChangedEventsArgs args);
+    public static event MetricAvailabilityChangedEventHandler OnMetricAvailabilityChanged;
+
+    private static void TryIndicateMetricAvailable(MetricInfo metricInfo)
+    {
+        if (metricInfo.IsAvailable)
+            return;
+
+        metricInfo.IsAvailable = true;
+        OnMetricAvailabilityChanged?.Invoke(new MetricAvailabilityChangedEventsArgs(metricInfo));
+    }
+
+    private static void TryIndicateMetricUnavailable(MetricInfo metricInfo)
+    {
+        if (!metricInfo.IsAvailable)
+            return;
+
+        metricInfo.IsAvailable = false;
+        OnMetricAvailabilityChanged?.Invoke(new MetricAvailabilityChangedEventsArgs(metricInfo));
     }
 }

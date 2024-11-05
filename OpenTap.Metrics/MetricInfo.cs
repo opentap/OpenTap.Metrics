@@ -35,6 +35,9 @@ public class MetricInfo
     /// <summary> The name of the metric. </summary>
     public string Name { get; }
 
+    /// <summary> Indicates if the metric is available for polling. </summary>
+    public bool IsAvailable { get; internal set; }
+
     /// <summary> Creates a new metric info based on a member name. </summary>
     /// <param name="mem">The metric member object.</param>
     /// <param name="groupName">The name of the metric group.</param>
@@ -49,6 +52,7 @@ public class MetricInfo
         Type = GetMetricType(mem);
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
         Source = source;
+        IsAvailable = true;
     }
 
     /// <summary> Creates a new metric info based on custom data. </summary>
@@ -65,6 +69,7 @@ public class MetricInfo
         Attributes = attributes;
         Kind = kind;
         Source = source;
+        IsAvailable = true;
     }
 
     /// <summary>
