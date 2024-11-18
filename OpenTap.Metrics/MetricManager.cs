@@ -93,10 +93,11 @@ public static class MetricManager
                     if (_pushMetricInfos.TryGetValue(mem, out var existingMetricInfo))
                     {
                         yield return existingMetricInfo;
-                        continue;
                     }
-
-                    yield return new MetricInfo(mem, member.Key, metricSource);
+                    else
+                    {
+                        yield return new MetricInfo(mem, member.Key, metricSource);
+                    }
                 }
             }
             if (metricSource is IAdditionalMetricSources source2)
