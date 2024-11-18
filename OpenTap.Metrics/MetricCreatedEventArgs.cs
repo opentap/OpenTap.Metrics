@@ -17,4 +17,3 @@ public class MetricCreatedEventArgs : EventArgs
     /// <summary> The metric that was created. </summary>
     public MetricInfo Metric { get; }
 }
-

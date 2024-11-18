@@ -21,7 +21,7 @@ public class MetricInfo
     public MetricType Type { get; }
 
     /// <summary> The metric member object. </summary>
-    IMemberData Member { get; }
+    internal IMemberData Member { get; }
 
     /// <summary> The attributes of the metric. </summary>
     public IEnumerable<object> Attributes { get; }
@@ -35,6 +35,9 @@ public class MetricInfo
     /// <summary> The name of the metric. </summary>
     public string Name { get; }
 
+    /// <summary> Indicates if the metric is available. </summary>
+    public bool IsAvailable { get; internal set; }
+
     /// <summary> Creates a new metric info based on a member name. </summary>
     /// <param name="mem">The metric member object.</param>
     /// <param name="groupName">The name of the metric group.</param>
@@ -46,26 +49,10 @@ public class MetricInfo
         Attributes = Member.Attributes.ToArray();
         var metricAttr = Attributes.OfType<MetricAttribute>().FirstOrDefault();
         Kind = metricAttr?.Kind ?? MetricKind.Poll;
-
-        if (mem.TypeDescriptor.IsNumeric())
-        {
-            Type = MetricType.Double;
-        }
-        else if (mem.TypeDescriptor.DescendsTo(typeof(string)))
-        {
-            Type = MetricType.String;
-        }
-        else if (mem.TypeDescriptor.DescendsTo(typeof(bool)))
-        {
-            Type = MetricType.Boolean;
-        }
-        else
-        {
-            Type = MetricType.Unknown;
-        }
-
+        Type = GetMetricType(mem);
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
         Source = source;
+        IsAvailable = true;
     }
 
     /// <summary> Creates a new metric info based on custom data. </summary>
@@ -82,6 +69,7 @@ public class MetricInfo
         Attributes = attributes;
         Kind = kind;
         Source = source;
+        IsAvailable = true;
     }
 
     /// <summary>
@@ -101,7 +89,8 @@ public class MetricInfo
             return string.Equals(GroupName, o.GroupName, StringComparison.Ordinal) &&
                    string.Equals(Name, o.Name, StringComparison.Ordinal) &&
                    Equals(Member, o.Member) &&
-                   Equals(Source, o.Source);
+                   Equals(Source, o.Source) &&
+                   Equals(IsAvailable, o.IsAvailable);
 
         return false;
     }
@@ -120,5 +109,31 @@ public class MetricInfo
     public object GetValue(object metricSource)
     {
         return Member?.GetValue(metricSource);
+    }
+
+    /// <summary>
+    /// Gets the metric type for all supported types including nullable.
+    /// </summary>
+    private MetricType GetMetricType(IMemberData memberData)
+    {
+        return memberData.TypeDescriptor switch
+        {
+            var d when d.IsNumeric() => MetricType.Double,
+            var d when d.DescendsTo(typeof(string)) => MetricType.String,
+            var d when d.DescendsTo(typeof(bool)) => MetricType.Boolean,
+            var d when d.DescendsTo(typeof(Nullable<>)) => GetNullableMetricType(d),
+            _ => MetricType.Unknown
+        };
+
+        static MetricType GetNullableMetricType(ITypeData typeData)
+        {
+            var underlyingType = Nullable.GetUnderlyingType(typeData.AsTypeData().Type);
+            return underlyingType switch
+            {
+                var d when d.IsNumeric() => MetricType.Nullable | MetricType.Double,
+                var d when d == typeof(bool) => MetricType.Nullable | MetricType.Boolean,
+                _ => MetricType.Unknown
+            };
+        }
     }
 }

@@ -22,10 +22,16 @@ public static class MetricManager
     {
         _interestLookup.Clear();
         _metricProducers.Clear();
+        _pushMetricInfos.Clear();
     }
 
     private static readonly ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>> _interestLookup =
         new ConcurrentDictionary<IMetricListener, HashSet<MetricInfo>>();
+
+    /// <summary>
+    /// Used for recreating push metrics infos to keep track of their availability.
+    /// </summary>
+    private static readonly ConcurrentDictionary<IMemberData, MetricInfo> _pushMetricInfos = new();
 
     /// <summary>
     /// Subscribe to the given set of push metrics. When called again, this overwrites the interest set of the listener.
@@ -83,7 +89,16 @@ public static class MetricManager
             foreach (var member in memberGrp)
             {
                 foreach (var mem in member)
-                    yield return new MetricInfo(mem, member.Key, metricSource);
+                {
+                    if (_pushMetricInfos.TryGetValue(mem, out var existingMetricInfo))
+                    {
+                        yield return existingMetricInfo;
+                    }
+                    else
+                    {
+                        yield return new MetricInfo(mem, member.Key, metricSource);
+                    }
+                }
             }
             if (metricSource is IAdditionalMetricSources source2)
             {
@@ -99,7 +114,12 @@ public static class MetricManager
     static bool TypeIsSupported(ITypeData td)
     {
         var type = td.AsTypeData().Type;
-        return type == typeof(double) || type == typeof(bool) || type == typeof(int) || type == typeof(string);
+
+        var isSupportedDoubleType = type == typeof(double) || type == typeof(double?);
+        var isSupportedBoolType = type == typeof(bool) || type == typeof(bool?);
+        var isSupportedIntType = type == typeof(int) || type == typeof(int?);
+
+        return isSupportedDoubleType || isSupportedBoolType || isSupportedIntType || type == typeof(string);
     }
 
     private static readonly ConcurrentDictionary<ITypeData, IMetricSource> _metricProducers =
@@ -120,6 +140,20 @@ public static class MetricManager
     public static void PushMetric(MetricInfo metric, string value)
     {
         PushMetric(new StringMetric(metric, value));
+    }
+
+    /// <summary>
+    /// Update the availability of a metric.
+    /// </summary>
+    /// <param name="metric"></param>
+    /// <param name="isAvailable"></param>
+    /// <exception cref="ArgumentException"></exception>
+    public static void UpdateAvailability(MetricInfo metric, bool isAvailable)
+    {
+        if (!metric.Kind.HasFlag(MetricKind.Push))
+            throw new ArgumentException("Cannot update availability of a poll metric.", nameof(metric));
+
+        UpdateMetricAvailability(metric, isAvailable);
     }
 
     /// <summary>
@@ -174,6 +208,10 @@ public static class MetricManager
                 case string v:
                     yield return new StringMetric(metric, v);
                     break;
+                    // String metrics does also support null values, but does not use the nullable flag.
+                case null when metric.Type.HasFlag(MetricType.Nullable) || metric.Type.HasFlag(MetricType.String):
+                    yield return new EmptyMetric(metric);
+                    break;
                 default:
                     log.ErrorOnce(metric, "Metric value is not a supported type: {0} of type {1}", metric.Name, metricValue?.GetType().Name ?? "null");
                     break;
@@ -190,8 +228,11 @@ public static class MetricManager
         {
             if (TypeIsSupported(mem.TypeDescriptor))
             {
-                return new MetricInfo(mem,
-                    metric.Group ?? (source as IResource)?.Name ?? type.GetDisplayAttribute()?.Name, source);
+                if (metric.Kind.HasFlag(MetricKind.Push) && _pushMetricInfos.TryGetValue(mem, out var existingMetricInfo))
+                    return existingMetricInfo;
+
+                var groupName = metric.Group ?? (source as IResource)?.Name ?? type.GetDisplayAttribute()?.Name;
+                return new MetricInfo(mem, groupName, source);
             }
         }
         return null;
@@ -207,22 +248,36 @@ public static class MetricManager
         var metric = new MetricAttribute(name, group: groupName, kind: kind);
         var mem = new MetricMemberData(declaring, descriptor, metric, () => pollFunction());
         var mi = new MetricInfo(mem, groupName, owner);
-        if (mi.Type == MetricType.Unknown)
+        if (mi.Type.Equals(MetricType.Unknown))
             throw new InvalidOperationException($"Unsupported metric type '{typeof(T)}'.");
         // Notify listeners that a new metric has been created so they can subscribe to it.
         OnMetricCreated?.Invoke(new MetricCreatedEventArgs(mi));
+
+        if (kind.HasFlag(MetricKind.Push))
+            _pushMetricInfos[mem] = mi;
+
         return mi;
     }
 
-    public static MetricInfo CreatePollMetric<T>(IAdditionalMetricSources owner, Func<T> pollFunction, string name, string groupName) where T : IConvertible
+    public static MetricInfo CreatePollMetric<T>(IAdditionalMetricSources owner, Func<T> pollFunction, string name, string groupName)
     {
         if (pollFunction == null)
             throw new ArgumentNullException(nameof(pollFunction));
         return CreateMetric<T>(owner, name, groupName, MetricKind.Poll, pollFunction);
     }
 
-    public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName) where T : IConvertible
+    public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName)
     {
         return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
+    }
+
+    public delegate void MetricAvailabilityChangedEventHandler(MetricAvailabilityChangedEventsArgs args);
+    public static event MetricAvailabilityChangedEventHandler OnMetricAvailabilityChanged;
+
+    private static void UpdateMetricAvailability(MetricInfo metricInfo, bool isAvailable)
+    {
+        metricInfo.IsAvailable = isAvailable;
+        OnMetricAvailabilityChanged?.Invoke(new MetricAvailabilityChangedEventsArgs(metricInfo));
+        _pushMetricInfos[metricInfo.Member] = metricInfo;
     }
 }
