@@ -28,7 +28,8 @@ public static class ResourceDiscoveryManager
         {
             _resourceDiscoveryProviders = TypeData.GetDerivedTypes<IResourceDiscovery>().Where(x => x.CanCreateInstance)
                 .Select(x => x.CreateInstance() as IResourceDiscovery)
-                .OrderBy(x => x.Priority);
+                .OrderBy(x => x.Priority)
+                .ToList();
         }
         return _resourceDiscoveryProviders;
     }
