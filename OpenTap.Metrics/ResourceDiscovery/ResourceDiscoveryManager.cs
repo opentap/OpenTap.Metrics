@@ -10,13 +10,15 @@ public static class ResourceDiscoveryManager
     /// </summary>
     public static IEnumerable<DiscoveredResource> DiscoverAllResources()
     {
+        Dictionary<string, DiscoveredResource> resources = new Dictionary<string, DiscoveredResource>();
         foreach (var provider in GetResourceDiscoveryProviders())
         {
             foreach (var res in provider.DiscoverResources())
             {
-                yield return res;
+                resources[res.Identifier] = res;
             }
         }
+        return resources.Values;
     }
 
     private static IEnumerable<IResourceDiscovery> _resourceDiscoveryProviders;
