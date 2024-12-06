@@ -24,7 +24,7 @@ public static class AssetDiscoveryManager
             }
             catch (Exception ex)
             {
-                log.Error($"Error while discovering resources from {provider.GetType().Name}: {ex.Message}");
+                log.Error($"Error while discovering assets from {provider.GetType().Name}: {ex.Message}");
             }
         }
         return assets.Values;
