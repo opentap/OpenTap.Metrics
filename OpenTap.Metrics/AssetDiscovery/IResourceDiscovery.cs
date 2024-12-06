@@ -13,6 +13,10 @@ public interface IAssetDiscovery : OpenTap.ITapPlugin
     /// discovered asset (same Identifier), the one from the higher priority provider is used
     /// </summary>
     double Priority { get; }
+
+    /// <summary>
+    /// Discovers assets connected to the system.
+    /// </summary>
     IEnumerable<DiscoveredAsset> DiscoverAssets();
 }
 
@@ -37,7 +41,6 @@ public class DiscoveredAsset
     /// The manufacturer of the asset. E.g. "Keysight". 
     /// </summary>
     public string Manufacturer { get; set; }
-
 }
 
 

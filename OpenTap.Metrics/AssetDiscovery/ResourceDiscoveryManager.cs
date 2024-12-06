@@ -6,7 +6,7 @@ namespace OpenTap.Metrics.AssetDiscovery;
 
 public static class AssetDiscoveryManager
 {
-    public static TraceSource log = OpenTap.Log.CreateSource("AssetDiscovery");
+    private static TraceSource log = OpenTap.Log.CreateSource("AssetDiscovery");
     /// <summary>
     /// Returns all discovered assets from all available providers.
     /// </summary>
