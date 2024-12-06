@@ -7,27 +7,26 @@ namespace OpenTap.Metrics.AssetDiscovery;
 public static class AssetDiscoveryManager
 {
     private static TraceSource log = OpenTap.Log.CreateSource("AssetDiscovery");
+
     /// <summary>
     /// Returns all discovered assets from all available providers.
     /// </summary>
-    public static IEnumerable<DiscoveredAsset> DiscoverAllAssets()
+    public static Dictionary<IAssetDiscovery, DiscoveryResult> DiscoverAllAssets()
     {
-        Dictionary<string, DiscoveredAsset> assets = new Dictionary<string, DiscoveredAsset>();
+        Dictionary<IAssetDiscovery, DiscoveryResult> assets = new Dictionary<IAssetDiscovery, DiscoveryResult>();
         foreach (var provider in GetAssetDiscoveryProviders())
         {
             try
             {
-                foreach (var asset in provider.DiscoverAssets())
-                {
-                    assets[asset.Identifier] = asset;
-                }
+                var result = provider.DiscoverAssets();
+                assets[provider] = result;
             }
             catch (Exception ex)
             {
                 log.Error($"Error while discovering assets from {provider.GetType().Name}: {ex.Message}");
             }
         }
-        return assets.Values;
+        return assets;
     }
 
     private static IEnumerable<IAssetDiscovery> _assetDiscoveryProviders;
