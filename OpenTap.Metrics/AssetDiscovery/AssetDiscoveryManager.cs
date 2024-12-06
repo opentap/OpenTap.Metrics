@@ -24,6 +24,11 @@ public static class AssetDiscoveryManager
             catch (Exception ex)
             {
                 log.Error($"Error while discovering assets from {provider.GetType().Name}: {ex.Message}");
+                assets[provider] = new DiscoveryResult
+                {
+                    IsSuccess = false,
+                    Error = ex.GetType().Name
+                };
             }
         }
         return assets;
