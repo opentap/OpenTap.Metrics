@@ -27,10 +27,15 @@ public class DiscoveryResult
     /// E.g. a test is running that might be impacted by sending a *IDN? SCPI query.
     /// An empty list in this case does not mean that no assets are available.
     /// </summary>  
-    public bool IsValid { get; set; }
+    public bool IsSuccess { get; set; }
+
+    /// <summary>
+    /// If IsSuccess is false, this property should contain a short message as to why the discovery failed.
+    /// </summary>
+    public string Error { get; set; }
     /// <summary>
     /// List of assets discovered by a specific implementation of IAssetDiscovery.
-    /// Null or an empty list only means no assets were found if IsValid is true.
+    /// Null or an empty list only means no assets were found if IsSuccess is true.
     /// </summary>
     public IEnumerable<DiscoveredAsset> Assets { get; set; }
 }
