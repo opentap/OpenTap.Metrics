@@ -23,14 +23,14 @@ public interface IAssetDiscovery : OpenTap.ITapPlugin
 public class DiscoveryResult
 {
     /// <summary>
-    /// If true, the discovery cannot be performed because the system is busy. 
+    /// If false, the discovery cannot be performed because of an error or because the system is busy. 
     /// E.g. a test is running that might be impacted by sending a *IDN? SCPI query.
     /// An empty list in this case does not mean that no assets are available.
     /// </summary>  
-    public bool IsBusy { get; set; }
+    public bool IsValid { get; set; }
     /// <summary>
     /// List of assets discovered by a specific implementation of IAssetDiscovery.
-    /// Null or an empty list only means no assets were found if IsBusy is false.
+    /// Null or an empty list only means no assets were found if IsValid is true.
     /// </summary>
     public IEnumerable<DiscoveredAsset> Assets { get; set; }
 }
