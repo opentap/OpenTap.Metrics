@@ -26,6 +26,7 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <CreateOpenTapPackage>true</CreateOpenTapPackage>
   </PropertyGroup>
+
   <ItemGroup Condition="'$(OS)' == 'WINDOWS_NT' AND '$(Configuration)' == 'Debug'"> 
     <AdditionalOpenTapPackage Include="Editor"/>
     <AdditionalOpenTapPackage Include="Live Results Panel"/> 
