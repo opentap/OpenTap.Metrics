@@ -27,7 +27,7 @@ public static class AssetDiscoveryManager
                 assets[provider] = new DiscoveryResult
                 {
                     IsSuccess = false,
-                    Error = ex.GetType().Name
+                    Error = ex.Message
                 };
             }
         }
