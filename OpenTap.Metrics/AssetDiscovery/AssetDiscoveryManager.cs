@@ -41,7 +41,7 @@ public static class AssetDiscoveryManager
         {
             _assetDiscoveryProviders = TypeData.GetDerivedTypes<IAssetDiscovery>().Where(x => x.CanCreateInstance)
                 .Select(x => x.CreateInstance() as IAssetDiscovery)
-                .OrderBy(x => x.Priority)
+                .OrderByDescending(x => x.Priority)  // Higher (numeric value) priority should be used first.
                 .ToList();
         }
         return _assetDiscoveryProviders;
