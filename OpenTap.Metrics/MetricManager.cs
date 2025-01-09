@@ -5,7 +5,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
 
 namespace OpenTap.Metrics;
 
@@ -119,7 +121,8 @@ public static class MetricManager
         var isSupportedBoolType = type == typeof(bool) || type == typeof(bool?);
         var isSupportedIntType = type == typeof(int) || type == typeof(int?);
 
-        return isSupportedDoubleType || isSupportedBoolType || isSupportedIntType || type == typeof(string);
+        return isSupportedDoubleType || isSupportedBoolType || isSupportedIntType || type == typeof(string) ||
+               td.DescendsTo(typeof(IConvertible));
     }
 
     private static readonly ConcurrentDictionary<ITypeData, IMetricSource> _metricProducers =
@@ -128,18 +131,21 @@ public static class MetricManager
     /// <summary> Push a double metric. </summary>
     public static void PushMetric(MetricInfo metric, double value)
     {
-        PushMetric(new DoubleMetric(metric, value));
+        var metadata = GetMetadata(metric.Source);
+        PushMetric(new DoubleMetric(metric, value, metadata));
     }
 
     /// <summary> Push a boolean metric. </summary>
     public static void PushMetric(MetricInfo metric, bool value)
     {
-        PushMetric(new BooleanMetric(metric, value));
+        var metadata = GetMetadata(metric.Source);
+        PushMetric(new BooleanMetric(metric, value, metadata));
     }
     /// <summary> Push a string metric. </summary>
     public static void PushMetric(MetricInfo metric, string value)
     {
-        PushMetric(new StringMetric(metric, value));
+        var metadata = GetMetadata(metric.Source);
+        PushMetric(new StringMetric(metric, value, metadata));
     }
 
     /// <summary>
@@ -175,6 +181,7 @@ public static class MetricManager
     public static IEnumerable<IMetric> PollMetrics(IEnumerable<MetricInfo> interestSet)
     {
         var interest = interestSet.Where(i => i.Kind.HasFlag(MetricKind.Poll)).ToHashSet();
+        Dictionary<object, Dictionary<string, string>> metadataLookup = new();
         
         foreach (var source in interest.GroupBy(i => i.Source))
         {
@@ -189,28 +196,35 @@ public static class MetricManager
                     log.Warning($"Unhandled exception in OnPollMetrics in '{producer}': '{ex.Message}'");
                 }
             }
+
+            var metadata = GetMetadata(source.Key);
+            metadataLookup[source.Key] = metadata;
         }
 
         foreach (var metric in interest)
         {
             var metricValue = metric.GetValue(metric.Source);
+            var metadata = metadataLookup[metric.Source];
             switch (metricValue)
             {
                 case bool v:
-                    yield return new BooleanMetric(metric, v);
+                    yield return new BooleanMetric(metric, v, metadata);
                     break;
                 case double v:
-                    yield return new DoubleMetric(metric, v);
+                    yield return new DoubleMetric(metric, v, metadata);
                     break;
                 case int v:
-                    yield return new DoubleMetric(metric, v);
+                    yield return new DoubleMetric(metric, v, metadata);
                     break;
                 case string v:
-                    yield return new StringMetric(metric, v);
+                    yield return new StringMetric(metric, v, metadata);
                     break;
-                    // String metrics does also support null values, but does not use the nullable flag.
+                case IConvertible v:
+                    yield return new StringMetric(metric, v.ToString(CultureInfo.InvariantCulture), metadata);
+                    break;
+                // String metrics does also support null values, but does not use the nullable flag.
                 case null when metric.Type.HasFlag(MetricType.Nullable) || metric.Type.HasFlag(MetricType.String):
-                    yield return new EmptyMetric(metric);
+                    yield return new EmptyMetric(metric, metadata);
                     break;
                 default:
                     log.ErrorOnce(metric, "Metric value is not a supported type: {0} of type {1}", metric.Name, metricValue?.GetType().Name ?? "null");
@@ -269,6 +283,43 @@ public static class MetricManager
     public static MetricInfo CreatePushMetric<T>(IAdditionalMetricSources owner, string name, string groupName)
     {
         return CreateMetric<T>(owner, name, groupName, MetricKind.Push, null);
+    }
+    
+    private static Dictionary<string, string> GetMetadata(object source)
+    {
+        var result = new Dictionary<string, string>();
+        var td = TypeData.GetTypeData(source);
+        IEnumerable<(IMemberData member, MetaDataAttribute metadata)> membersWithMetadata =
+            td.GetMembers().Select(m => (m, _getMetadataAttribute(m)));
+        foreach (var item in membersWithMetadata)
+        {
+            if (item.metadata != null)
+            {
+                var attrName = item.metadata.Name ?? item.member.GetDisplayAttribute().Name;
+                result[attrName] = item.member.GetValue(source)?.ToString();
+            }
+        }
+
+        return result;
+        
+        MetaDataAttribute _getMetadataAttribute2(Type t, string member)
+        {
+            foreach (var @if in t.GetInterfaces())
+            {
+                var prop = @if.GetMember(member);
+                foreach (var memberInfo in prop)
+                {
+                    if (memberInfo.GetCustomAttribute<MetaDataAttribute>() is { } m) return m;
+                }
+            }
+
+            return null;
+        }
+        MetaDataAttribute _getMetadataAttribute(IMemberData mem)
+        {
+            if (mem.GetAttribute<MetaDataAttribute>() is MetaDataAttribute m) return m;
+            return _getMetadataAttribute2(mem.DeclaringType.AsTypeData()?.Type, mem.Name);
+        }
     }
 
     public delegate void MetricAvailabilityChangedEventHandler(MetricAvailabilityChangedEventsArgs args);

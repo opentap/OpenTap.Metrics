@@ -6,9 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using NUnit.Framework;
-using NUnit.Framework.Internal;
+using OpenTap.Metrics.AssetDiscovery;
 
 namespace OpenTap.Metrics.UnitTest;
 
@@ -395,5 +396,77 @@ public class MetricManagerTest
         metricInfo = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).First(m => m.Name == nameof(FullMetricSource.DoubleMetric));
 
         Assert.That(metricInfo.IsAvailable, Is.EqualTo(expected));
+    }
+
+    public class ScpiInstrumentMock : Instrument
+    {
+        public string SerialNumber { get; set; }
+        public string ScpiQuery(string query) => DateTime.Today.ToString(CultureInfo.InvariantCulture);
+        [MetaData]
+        public string IdnString => $"Keysight,N9020,{SerialNumber},10.5.34";
+    }
+    public class TestMXA : ScpiInstrumentMock, IOnPollMetricsCallback
+    { 
+        [Metric]
+        public DateTime CalibrationDate { get; set; }
+
+        public string Model { get; private set; }
+        public string Identifier { get; private set; }
+        public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
+        {
+            bool shouldClose = false;
+            if (!this.IsConnected)
+            {
+                this.Open();
+                shouldClose = true;
+            }
+
+            try
+            {
+                var parts = this.IdnString.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                this.Identifier = parts[0] + parts[1] + parts[2];
+                this.Model = parts[1];
+                this.CalibrationDate = DateTime.Parse(ScpiQuery("CALibrationdate?"));
+            }
+            finally
+            {
+                if (shouldClose)
+                    this.Close();
+            }
+        }
+    }
+
+    [Test]
+    public void TestAssetMetadata()
+    {
+        using var s = OpenTap.Session.Create(SessionOptions.OverlayComponentSettings);
+        InstrumentSettings.Current.Clear();
+        InstrumentSettings.Current.Add(new TestMXA()
+        {
+            Name = "MXA 1", CalibrationDate = DateTime.Today,
+            SerialNumber = "MXA1_SER"
+        });
+        InstrumentSettings.Current.Add(new TestMXA()
+        {
+            Name = "MXA 2", CalibrationDate = (DateTime.Today + TimeSpan.FromDays(1)),
+            SerialNumber = "MXA2_SER"
+        });
+
+        var infos = MetricManager.GetMetricInfos().Where(m => m.Source is TestMXA).ToArray();
+        var metrics = MetricManager.PollMetrics(infos);
+
+        foreach (var m in metrics)
+        {
+            Assert.That(m.MetaData.Count == 3);
+            Assert.That(m.MetaData["Model"], Is.EqualTo("N9020"));
+            if (m.Info.Source == InstrumentSettings.Current[0])
+            {
+                Assert.That(m.MetaData["Identifier"], Is.EqualTo("MXA 1"));
+            }
+            else
+            {
+                Assert.That(m.MetaData["Identifier"], Is.EqualTo("MXA 2"));
+            }
+        }
     }
 }
