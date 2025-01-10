@@ -398,20 +398,23 @@ public class MetricManagerTest
         Assert.That(metricInfo.IsAvailable, Is.EqualTo(expected));
     }
 
-    public class ScpiInstrumentMock : Instrument
+    public abstract class ScpiInstrumentMock : Instrument, IAsset
     {
         public string SerialNumber { get; set; }
+        public string Manufacturer { get; set; } = "Keysight";
+        public string FirmwareVersion { get; set; } = "10.5.34";
         public string ScpiQuery(string query) => DateTime.Today.ToString(CultureInfo.InvariantCulture);
         [MetaData]
-        public string IdnString => $"Keysight,N9020,{SerialNumber},10.5.34";
+        public string IdnString => $"{Manufacturer},{Model},{SerialNumber},{FirmwareVersion}";
+
+        public string Model { get; set; }
+        public string Identifier { get; set; }
     }
-    public class TestMXA : ScpiInstrumentMock, IOnPollMetricsCallback
+    public class TestMXA : ScpiInstrumentMock, IAsset, IOnPollMetricsCallback
     { 
         [Metric]
         public DateTime CalibrationDate { get; set; }
 
-        public string Model { get; private set; }
-        public string Identifier { get; private set; }
         public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
         {
             bool shouldClose = false;
@@ -441,31 +444,35 @@ public class MetricManagerTest
     {
         using var s = OpenTap.Session.Create(SessionOptions.OverlayComponentSettings);
         InstrumentSettings.Current.Clear();
-        InstrumentSettings.Current.Add(new TestMXA()
+        var mxa1 = new TestMXA()
         {
             Name = "MXA 1", CalibrationDate = DateTime.Today,
-            SerialNumber = "MXA1_SER"
-        });
-        InstrumentSettings.Current.Add(new TestMXA()
+            SerialNumber = "MXA1_SER", Model = "N9020"
+        };
+        InstrumentSettings.Current.Add(mxa1);
+        var mxa2 = new TestMXA()
         {
             Name = "MXA 2", CalibrationDate = (DateTime.Today + TimeSpan.FromDays(1)),
-            SerialNumber = "MXA2_SER"
-        });
+            SerialNumber = "MXA2_SER", Model = "N9020"
+        };
+        InstrumentSettings.Current.Add(mxa2);
 
         var infos = MetricManager.GetMetricInfos().Where(m => m.Source is TestMXA).ToArray();
-        var metrics = MetricManager.PollMetrics(infos);
+        var metrics = MetricManager.PollMetrics(infos).ToArray();
 
+        Assert.That(infos.Length, Is.EqualTo(2));
+        Assert.That(metrics.Length, Is.EqualTo(2));
         foreach (var m in metrics)
         {
-            Assert.That(m.MetaData.Count == 3);
+            Assert.That(m.MetaData.Count, Is.EqualTo(3));
             Assert.That(m.MetaData["Model"], Is.EqualTo("N9020"));
-            if (m.Info.Source == InstrumentSettings.Current[0])
+            if (m.Info.Source == mxa1)
             {
-                Assert.That(m.MetaData["Identifier"], Is.EqualTo("MXA 1"));
+                Assert.That(m.MetaData["ID"], Is.EqualTo($"{mxa1.Manufacturer}{mxa1.Model}{mxa1.SerialNumber}"));
             }
             else
             {
-                Assert.That(m.MetaData["Identifier"], Is.EqualTo("MXA 2"));
+                Assert.That(m.MetaData["ID"], Is.EqualTo($"{mxa2.Manufacturer}{mxa2.Model}{mxa2.SerialNumber}"));
             }
         }
     }
