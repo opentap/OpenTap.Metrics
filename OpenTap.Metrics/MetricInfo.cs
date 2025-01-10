@@ -37,6 +37,12 @@ public class MetricInfo
 
     /// <summary> Indicates if the metric is available. </summary>
     public bool IsAvailable { get; internal set; }
+    
+    /// <summary> The suggested poll rate for this metric, in seconds. </summary>
+    public int? SuggestedPollRate { get; }
+    
+    /// <summary> The suggested initial state of the metric. </summary>
+    public MetricSuggestedInitialState SuggestedInitialState { get; }
 
     /// <summary> Creates a new metric info based on a member name. </summary>
     /// <param name="mem">The metric member object.</param>
@@ -53,6 +59,29 @@ public class MetricInfo
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
         Source = source;
         IsAvailable = true;
+        SuggestedPollRate = metricAttr?.SuggestedPollRate;
+        SuggestedInitialState = metricAttr?.SuggestedInitialState ?? MetricSuggestedInitialState.Indifferent;
+    } 
+    
+    /// <summary> Creates a new metric info based on custom data. </summary>
+    /// <param name="name">The name of the metric.</param>
+    /// <param name="groupName">The name of the metric group.</param>
+    /// <param name="attributes">The attributes of the metric.</param>
+    ///  <param name="kind">The push / poll semantics of the metric. </param>
+    /// <param name="source">The object that produces this metric.</param>
+    /// <param name="suggestedPollRate">Optional suggested poll rate of the metric, in seconds.</param>
+    /// <param name="suggestedInitialState">Optionally indicate the suggested initial state of the metric.</param>
+    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, MetricKind kind, object source, int? suggestedPollRate, MetricSuggestedInitialState suggestedInitialState)
+    {
+        Name = name;
+        Member = null;
+        GroupName = groupName;
+        Attributes = attributes;
+        Kind = kind;
+        Source = source;
+        IsAvailable = true;
+        SuggestedPollRate = suggestedPollRate;
+        SuggestedInitialState = suggestedInitialState;
     }
 
     /// <summary> Creates a new metric info based on custom data. </summary>
@@ -70,6 +99,8 @@ public class MetricInfo
         Kind = kind;
         Source = source;
         IsAvailable = true;
+        SuggestedPollRate = null;
+        SuggestedInitialState = MetricSuggestedInitialState.Indifferent;
     }
 
     /// <summary>

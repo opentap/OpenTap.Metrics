@@ -17,7 +17,28 @@ public class MetricAttribute : Attribute
 
     /// <summary> Whether this metric can be polled or will be published out of band. </summary>
     public MetricKind Kind { get; }
+    
+    /// <summary> The suggested poll rate of the metric, in seconds. </summary>
+    public int? SuggestedPollRate { get; }
+    
+    /// <summary> The suggested initial state of the metric. </summary>
+    public MetricSuggestedInitialState SuggestedInitialState { get; }
 
+    /// <summary> Creates a new instance of the metric attribute </summary>
+    ///  <param name="name">Optionally, the name of the metric.</param>
+    ///  <param name="group">The group of the metric.</param>
+    ///  <param name="kind"> The push / poll semantics of the metric. </param>
+    /// <param name="suggestedPollRate">Optional suggested poll rate of the metric, in seconds.</param>
+    /// <param name="suggestedInitialState">Optionally indicate the suggested initial state of the metric.</param>
+    public MetricAttribute(string name = null, string group = null, MetricKind kind = MetricKind.Poll, int? suggestedPollRate = null, MetricSuggestedInitialState suggestedInitialState = MetricSuggestedInitialState.Indifferent)
+    {
+        Name = name;
+        Group = group;
+        Kind = kind;
+        SuggestedPollRate = suggestedPollRate;
+        SuggestedInitialState = suggestedInitialState;
+    }
+    
     /// <summary> Creates a new instance of the metric attribute </summary>
     ///  <param name="name">Optionally, the name of the metric.</param>
     ///  <param name="group">The group of the metric.</param>
@@ -30,7 +51,7 @@ public class MetricAttribute : Attribute
     }
 
     /// <summary> Creates a new instance of the metric attribute.</summary>
-    public MetricAttribute() : this(null)
+    public MetricAttribute() : this(suggestedPollRate: null)
     {
     }
 }
