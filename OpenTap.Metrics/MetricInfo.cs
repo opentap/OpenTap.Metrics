@@ -39,7 +39,7 @@ public class MetricInfo
     public bool IsAvailable { get; internal set; }
     
     /// <summary> The suggested poll rate for this metric, in seconds. </summary>
-    public int? SuggestedPollRate { get; }
+    public int SuggestedPollRate { get; }
     
     /// <summary> The suggested initial state of the metric. </summary>
     public MetricSuggestedInitialState SuggestedInitialState { get; }
@@ -59,7 +59,7 @@ public class MetricInfo
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
         Source = source;
         IsAvailable = true;
-        SuggestedPollRate = metricAttr?.SuggestedPollRate;
+        SuggestedPollRate = metricAttr?.SuggestedPollRate ?? 0;
         SuggestedInitialState = metricAttr?.SuggestedInitialState ?? MetricSuggestedInitialState.Indifferent;
     } 
     
@@ -71,7 +71,7 @@ public class MetricInfo
     /// <param name="source">The object that produces this metric.</param>
     /// <param name="suggestedPollRate">Optional suggested poll rate of the metric, in seconds.</param>
     /// <param name="suggestedInitialState">Optionally indicate the suggested initial state of the metric.</param>
-    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, MetricKind kind, object source, int? suggestedPollRate, MetricSuggestedInitialState suggestedInitialState)
+    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, MetricKind kind, object source, int suggestedPollRate, MetricSuggestedInitialState suggestedInitialState)
     {
         Name = name;
         Member = null;
@@ -99,7 +99,7 @@ public class MetricInfo
         Kind = kind;
         Source = source;
         IsAvailable = true;
-        SuggestedPollRate = null;
+        SuggestedPollRate = 0;
         SuggestedInitialState = MetricSuggestedInitialState.Indifferent;
     }
 
