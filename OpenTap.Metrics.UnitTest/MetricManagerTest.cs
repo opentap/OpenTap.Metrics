@@ -51,10 +51,10 @@ public class TestMetricSource : IMetricSource
 [Display("Full Test Metric Producer")]
 public class FullMetricSource : IMetricSource
 {
-    [Metric(kind: MetricKind.PushPoll, SuggestedPollRate = 300)]
+    [Metric(kind: MetricKind.PushPoll, DefaultEnabled = true)]
     public double DoubleMetric { get; private set; }
 
-    [Metric(kind: MetricKind.PushPoll, SuggestedPollRate = 3)]
+    [Metric(kind: MetricKind.PushPoll, DefaultPollRate = 3)]
     public double? DoubleMetricNull { get; private set; }
 
     [Metric(kind: MetricKind.PushPoll)]

@@ -435,9 +435,10 @@ as the `DiscoveredAsset.Identifier` property.
 ```cs
 public class MyInstrument : ScpiInstrument, IOnPollMetricCallback, IAsset
 {
+    [Metadata]
     public string Identifier { get; }
 
-    [Metric("Calibration Date")
+    [Metric("Calibration Date", DefaultPollRate: 86400, DefaultEnabled: true)]
     public DateTime CalibrationDate { get; private set; }
 
     public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
@@ -464,6 +465,5 @@ public class MyInstrument : ScpiInstrument, IOnPollMetricCallback, IAsset
                 this.Close();
         }
     }
-  
 }
 ```
