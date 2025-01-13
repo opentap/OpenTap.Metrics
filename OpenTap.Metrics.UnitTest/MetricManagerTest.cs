@@ -6,9 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using NUnit.Framework;
-using NUnit.Framework.Internal;
+using OpenTap.Metrics.AssetDiscovery;
 
 namespace OpenTap.Metrics.UnitTest;
 
@@ -50,10 +51,10 @@ public class TestMetricSource : IMetricSource
 [Display("Full Test Metric Producer")]
 public class FullMetricSource : IMetricSource
 {
-    [Metric(kind: MetricKind.PushPoll)]
+    [Metric(kind: MetricKind.PushPoll, DefaultEnabled = true)]
     public double DoubleMetric { get; private set; }
 
-    [Metric(kind: MetricKind.PushPoll)]
+    [Metric(kind: MetricKind.PushPoll, DefaultPollRate = 3)]
     public double? DoubleMetricNull { get; private set; }
 
     [Metric(kind: MetricKind.PushPoll)]
@@ -395,5 +396,88 @@ public class MetricManagerTest
         metricInfo = MetricManager.GetMetricInfos().Where(m => m.Source is FullMetricSource).First(m => m.Name == nameof(FullMetricSource.DoubleMetric));
 
         Assert.That(metricInfo.IsAvailable, Is.EqualTo(expected));
+    }
+
+    public abstract class ScpiInstrumentMock : Instrument, IAsset
+    {
+        public string SerialNumber { get; set; }
+        public string Manufacturer { get; set; } = "Keysight";
+        public string FirmwareVersion { get; set; } = "10.5.34";
+        public string ScpiQuery(string query) => DateTime.Today.ToString(CultureInfo.InvariantCulture);
+        [MetaData]
+        public string IdnString => $"{Manufacturer},{Model},{SerialNumber},{FirmwareVersion}";
+
+        public string Model { get; set; }
+        public string Identifier { get; set; }
+    }
+    public class TestMXA : ScpiInstrumentMock, IAsset, IOnPollMetricsCallback
+    {
+        [Metric]
+        public DateTime CalibrationDate { get; set; }
+
+        public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
+        {
+            bool shouldClose = false;
+            if (!this.IsConnected)
+            {
+                this.Open();
+                shouldClose = true;
+            }
+
+            try
+            {
+                var parts = this.IdnString.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                this.Identifier = parts[0] + parts[1] + parts[2];
+                this.Model = parts[1];
+                this.CalibrationDate = DateTime.Parse(ScpiQuery("CALibrationdate?"));
+            }
+            finally
+            {
+                if (shouldClose)
+                    this.Close();
+            }
+        }
+    }
+
+    [Test]
+    public void TestAssetMetadata()
+    {
+        using var s = OpenTap.Session.Create(SessionOptions.OverlayComponentSettings);
+        InstrumentSettings.Current.Clear();
+        var mxa1 = new TestMXA()
+        {
+            Name = "MXA 1",
+            CalibrationDate = DateTime.Today,
+            SerialNumber = "MXA1_SER",
+            Model = "N9020"
+        };
+        InstrumentSettings.Current.Add(mxa1);
+        var mxa2 = new TestMXA()
+        {
+            Name = "MXA 2",
+            CalibrationDate = (DateTime.Today + TimeSpan.FromDays(1)),
+            SerialNumber = "MXA2_SER",
+            Model = "N9020"
+        };
+        InstrumentSettings.Current.Add(mxa2);
+
+        var infos = MetricManager.GetMetricInfos().Where(m => m.Source is TestMXA).ToArray();
+        var metrics = MetricManager.PollMetrics(infos).ToArray();
+
+        Assert.That(infos.Length, Is.EqualTo(2));
+        Assert.That(metrics.Length, Is.EqualTo(2));
+        foreach (var m in metrics)
+        {
+            Assert.That(m.MetaData.Count, Is.EqualTo(3));
+            Assert.That(m.MetaData["Model"], Is.EqualTo("N9020"));
+            if (m.Info.Source == mxa1)
+            {
+                Assert.That(m.MetaData["ID"], Is.EqualTo($"{mxa1.Manufacturer}{mxa1.Model}{mxa1.SerialNumber}"));
+            }
+            else
+            {
+                Assert.That(m.MetaData["ID"], Is.EqualTo($"{mxa2.Manufacturer}{mxa2.Model}{mxa2.SerialNumber}"));
+            }
+        }
     }
 }

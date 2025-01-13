@@ -38,6 +38,18 @@ public class MetricInfo
     /// <summary> Indicates if the metric is available. </summary>
     public bool IsAvailable { get; internal set; }
 
+    /// <summary> 
+    /// The suggested default poll rate for this metric, in seconds. 
+    /// This is a hint to the client. A UI is free to ignore this hint (or round it up/down).
+    /// </summary>
+    public int DefaultPollRate { get; }
+
+    /// <summary> 
+    /// Suggestion to clients on whether to poll this metric by default. 
+    /// This is a hint to the client. A UI is free to ignore this hint.
+    /// </summary>
+    public bool DefaultEnabled { get; protected set; } = false;
+
     /// <summary> Creates a new metric info based on a member name. </summary>
     /// <param name="mem">The metric member object.</param>
     /// <param name="groupName">The name of the metric group.</param>
@@ -53,6 +65,29 @@ public class MetricInfo
         Name = metricAttr?.Name ?? Member.GetDisplayAttribute()?.Name;
         Source = source;
         IsAvailable = true;
+        DefaultPollRate = metricAttr?.DefaultPollRate ?? 0;
+        DefaultEnabled = metricAttr?.DefaultEnabled ?? false;
+    }
+
+    /// <summary> Creates a new metric info based on custom data. </summary>
+    /// <param name="name">The name of the metric.</param>
+    /// <param name="groupName">The name of the metric group.</param>
+    /// <param name="attributes">The attributes of the metric.</param>
+    ///  <param name="kind">The push / poll semantics of the metric. </param>
+    /// <param name="source">The object that produces this metric.</param>
+    /// <param name="defaultPollRate">Optional suggested poll rate of the metric, in seconds.</param>
+    /// <param name="suggestedInitialState">Optionally indicate the suggested initial state of the metric.</param>
+    public MetricInfo(string name, string groupName, IEnumerable<object> attributes, MetricKind kind, object source, int defaultPollRate, bool defaultEnabled)
+    {
+        Name = name;
+        Member = null;
+        GroupName = groupName;
+        Attributes = attributes;
+        Kind = kind;
+        Source = source;
+        IsAvailable = true;
+        DefaultPollRate = defaultPollRate;
+        DefaultEnabled = defaultEnabled;
     }
 
     /// <summary> Creates a new metric info based on custom data. </summary>
@@ -70,6 +105,7 @@ public class MetricInfo
         Kind = kind;
         Source = source;
         IsAvailable = true;
+        DefaultPollRate = 0;
     }
 
     /// <summary>

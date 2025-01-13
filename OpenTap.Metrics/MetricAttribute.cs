@@ -18,6 +18,18 @@ public class MetricAttribute : Attribute
     /// <summary> Whether this metric can be polled or will be published out of band. </summary>
     public MetricKind Kind { get; }
 
+    /// <summary> 
+    /// The suggested default poll rate of the metric, in seconds. 
+    /// This is a hint to the client. A UI is free to ignore this hint (or round it up/down).
+    /// </summary>
+    public int DefaultPollRate { get; set; } = 300;
+
+    /// <summary> 
+    /// Suggestion to clients on whether to poll this metric by default. 
+    /// This is a hint to the client. A UI is free to ignore this hint.
+    /// </summary>
+    public bool DefaultEnabled { get; set; } = false;
+
     /// <summary> Creates a new instance of the metric attribute </summary>
     ///  <param name="name">Optionally, the name of the metric.</param>
     ///  <param name="group">The group of the metric.</param>

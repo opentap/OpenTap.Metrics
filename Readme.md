@@ -391,3 +391,79 @@ MetricManager.OnMetricCreated += onMetricCreated;
 The OnMetricCreated event handler is called immediately when the new metric is
 created, so any listeners have the opportunity to subscribe to the first
 instance of a new `Push` metric.
+
+# Assets
+
+This package also contains definitions for the `IAssetDiscovery` plugin type and
+related functionality. This is a semi independent feature, but it is related to
+metrics in that it metrics can be associated with an asset instead of the default
+of associating the metric with the entire system.
+
+## Discovering Assets
+
+To add asset discovery capabilities to opentap, you should return a list of 
+`DiscoveredAsset` from the `DiscoverAssets` method in your `IAssetDiscovery` 
+implementation. When used in e.g. a Runner DiscoverAssets() will be called periodically
+so the results can be collected in KS8500.
+    
+```cs
+public class MyAssetDiscovery : IAssetDiscovery
+{
+    public IEnumerable<DiscoveredAsset> DiscoverAssets()
+    {
+        // TODO: Code that queries e.g. the network, or other peripherals to find assets
+    }
+}
+```
+
+Each `DiscoveredAsset` should contain a unique `Identifier` and a `Model`. The identifier
+is used to identify this specific asset and should be the same if the asset is later connected
+to a different system (e.g. Runner/Station). The model is a string that describes the asset
+model and can be be used to lookup a suitable driver for the asset.
+
+`IAssetDiscovery` implementations can also specialize `DiscoveredAsset` to include additional
+information (e.g. firmware version).
+
+## Adding information to an asset using Metrics
+
+In some situations, the `IAssetDiscovery` implementation cannot generically get the desired 
+information from all possible asset models that it can discover. In these cases, the asset 
+driver can provide additional information about the asset using metrics. To do this, the driver
+should implement IAsset and be sure to set the same string in the `IAsset.Identifier` property
+as the `DiscoveredAsset.Identifier` property.
+
+```cs
+public class MyInstrument : ScpiInstrument, IOnPollMetricCallback, IAsset
+{
+    [Metadata]
+    public string Identifier { get; }
+
+    [Metric("Calibration Date", DefaultPollRate: 86400, DefaultEnabled: true)]
+    public DateTime CalibrationDate { get; private set; }
+
+    public void OnPollMetrics(IEnumerable<MetricInfo> metrics)
+    {
+        bool shouldClose = false;
+        if (!this.IsConnected)
+        {
+            this.Open();
+            shouldClose = true;
+        }
+
+        try
+        {
+            var parts = this.IdnString.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            this.Identifier = parts[0] + parts[1] + parts[2];
+            this.Model = parts[1];
+            var calInfoResponse = ScpiQuery("SYSTem:SERVice:MANagement:CALibration:INFormation?"));
+            var calInfo = JsonConvert.DeserializeObject<Dictionary<string, string>>(calInfoResponse);
+            this.CalibrationDate = DateTime.Parse(calInfo["CalDate"]);
+        }
+        finally
+        {
+            if (shouldClose)
+                this.Close();
+        }
+    }
+}
+```

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace OpenTap.Metrics.AssetDiscovery;
@@ -45,7 +46,7 @@ public class DiscoveryResult
 /// Represents a discovered asset.
 /// IAssetDiscovery implementations can specialize this class to provide additional information.
 /// </summary>
-public class DiscoveredAsset
+public class DiscoveredAsset : IAsset
 {
     /// <summary>
     /// The type of the asset. E.g. "N9020A".
@@ -58,10 +59,25 @@ public class DiscoveredAsset
     /// E.g. for an Instrument, this could be a combination of Manufacturer, Model and serial number.
     /// </summary>
     public string Identifier { get; set; }
-    /// <summary>
-    /// The manufacturer of the asset. E.g. "Keysight". 
-    /// </summary>
-    public string Manufacturer { get; set; }
 }
 
-
+/// <summary>
+/// Interface for an object that represents an asset. 
+/// Instruments and other Resources should implement this interface if they want to attach metrics to the asset.
+/// </summary>
+public interface IAsset
+{
+    /// <summary>
+    /// The type of the asset. E.g. "N9020A".
+    /// This can be used to determine a suitable driver for the asset
+    /// so it can be used as an Asset in OpenTAP.
+    /// </summary>
+    [MetaData(Name = "Model")]
+    public string Model { get; }
+    /// <summary>
+    /// A unique identifier for the asset. This is used to identify the asset in the system.
+    /// E.g. for an Instrument, this could be a combination of Manufacturer, Model and serial number.
+    /// </summary>
+    [MetaData(Name = "ID")]
+    string Identifier { get; }
+}
