@@ -40,13 +40,13 @@ public class MetricInfo
 
     /// <summary> 
     /// The suggested default poll rate for this metric, in seconds. 
-    /// This is a hint to the clint. A UI is free to ignore this hint (or round it up/down).
+    /// This is a hint to the client. A UI is free to ignore this hint (or round it up/down).
     /// </summary>
     public int DefaultPollRate { get; }
 
     /// <summary> 
     /// Suggestion to clients on whether to poll this metric by default. 
-    /// This is a hint to the clint. A UI is free to ignore this hint.
+    /// This is a hint to the client. A UI is free to ignore this hint.
     /// </summary>
     public bool DefaultEnabled { get; protected set; } = false;
 

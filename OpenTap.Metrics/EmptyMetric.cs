@@ -21,6 +21,11 @@ public readonly struct EmptyMetric : IMetric
     public DateTime Time { get; }
 
     /// <summary> Creates a new instance of the empty metric. </summary>
+    public EmptyMetric(MetricInfo info, DateTime? time = null) : this(info, new(), time)
+    {
+    }
+
+    /// <summary> Creates a new instance of the empty metric. </summary>
     public EmptyMetric(MetricInfo info, Dictionary<string, string> metaData, DateTime? time = null)
     {
         Info = info;

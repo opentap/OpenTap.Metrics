@@ -21,6 +21,11 @@ public readonly struct BooleanMetric : IMetric
     public DateTime Time { get; }
 
     /// <summary> Creates a new instance of the boolean metric. </summary>
+    public BooleanMetric(MetricInfo info, bool value, DateTime? time = null) : this(info, value, new(), time)
+    {
+    }
+
+    /// <summary> Creates a new instance of the boolean metric. </summary>
     public BooleanMetric(MetricInfo info, bool value, Dictionary<string, string> metaData, DateTime? time = null)
     {
         Info = info;

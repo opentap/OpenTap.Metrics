@@ -62,7 +62,7 @@ public class DiscoveredAsset : IAsset
 }
 
 /// <summary>
-/// Interface for an object that representa an asset. 
+/// Interface for an object that represents an asset. 
 /// Instruments and other Resources should implement this interface if they want to attach metrics to the asset.
 /// </summary>
 public interface IAsset

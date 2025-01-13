@@ -22,6 +22,11 @@ public readonly struct DoubleMetric : IMetric
     public DateTime Time { get; }
         
     /// <summary> Creates a new instance of the double metric. </summary>
+    public DoubleMetric(MetricInfo info, double value, DateTime? time = null) : this(info, value, new(), time)
+    {
+    }
+
+    /// <summary> Creates a new instance of the double metric. </summary>
     public DoubleMetric(MetricInfo info, double value, Dictionary<string, string> metaData, DateTime? time = null)
     {
         Value = value;
