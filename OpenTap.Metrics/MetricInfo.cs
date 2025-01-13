@@ -37,12 +37,13 @@ public class MetricInfo
 
     /// <summary> Indicates if the metric is available. </summary>
     public bool IsAvailable { get; internal set; }
-    
-    /// <summary> The suggested poll rate for this metric, in seconds. </summary>
+
+    /// <summary> 
+    /// The suggested default poll rate for this metric, in seconds. 
+    /// Zero suggests not to poll this metric by default. 
+    /// This is a hint to the clint. A UI is free to ignore this hint (or round it up/down).
+    /// </summary>
     public int SuggestedPollRate { get; }
-    
-    /// <summary> The suggested initial state of the metric. </summary>
-    public MetricSuggestedInitialState SuggestedInitialState { get; }
 
     /// <summary> Creates a new metric info based on a member name. </summary>
     /// <param name="mem">The metric member object.</param>
@@ -60,9 +61,8 @@ public class MetricInfo
         Source = source;
         IsAvailable = true;
         SuggestedPollRate = metricAttr?.SuggestedPollRate ?? 0;
-        SuggestedInitialState = metricAttr?.SuggestedInitialState ?? MetricSuggestedInitialState.Indifferent;
-    } 
-    
+    }
+
     /// <summary> Creates a new metric info based on custom data. </summary>
     /// <param name="name">The name of the metric.</param>
     /// <param name="groupName">The name of the metric group.</param>
@@ -81,7 +81,6 @@ public class MetricInfo
         Source = source;
         IsAvailable = true;
         SuggestedPollRate = suggestedPollRate;
-        SuggestedInitialState = suggestedInitialState;
     }
 
     /// <summary> Creates a new metric info based on custom data. </summary>
@@ -100,7 +99,6 @@ public class MetricInfo
         Source = source;
         IsAvailable = true;
         SuggestedPollRate = 0;
-        SuggestedInitialState = MetricSuggestedInitialState.Indifferent;
     }
 
     /// <summary>

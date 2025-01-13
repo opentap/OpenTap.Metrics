@@ -17,13 +17,14 @@ public class MetricAttribute : Attribute
 
     /// <summary> Whether this metric can be polled or will be published out of band. </summary>
     public MetricKind Kind { get; }
-    
-    /// <summary> The suggested poll rate of the metric, in seconds. </summary>
-    public int SuggestedPollRate { get; set; }
-    
-    /// <summary> The suggested initial state of the metric. </summary>
-    public MetricSuggestedInitialState SuggestedInitialState { get; set; } 
-    
+
+    /// <summary> 
+    /// The suggested default poll rate of the metric, in seconds. 
+    /// Zero suggests not to poll this metric by default. 
+    /// This is a hint to the clint. A UI is free to ignore this hint (or round it up/down).
+    /// </summary>
+    public int SuggestedPollRate { get; set; } = 0;
+
     /// <summary> Creates a new instance of the metric attribute </summary>
     ///  <param name="name">Optionally, the name of the metric.</param>
     ///  <param name="group">The group of the metric.</param>

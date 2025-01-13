@@ -466,3 +466,4 @@ public class MyInstrument : ScpiInstrument, IOnPollMetricCallback, IAsset
     }
   
 }
+```

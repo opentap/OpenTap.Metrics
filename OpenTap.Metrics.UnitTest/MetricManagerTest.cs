@@ -51,7 +51,7 @@ public class TestMetricSource : IMetricSource
 [Display("Full Test Metric Producer")]
 public class FullMetricSource : IMetricSource
 {
-    [Metric(kind: MetricKind.PushPoll, SuggestedInitialState = MetricSuggestedInitialState.Enabled)]
+    [Metric(kind: MetricKind.PushPoll, SuggestedPollRate = 300)]
     public double DoubleMetric { get; private set; }
 
     [Metric(kind: MetricKind.PushPoll, SuggestedPollRate = 3)]
@@ -411,7 +411,7 @@ public class MetricManagerTest
         public string Identifier { get; set; }
     }
     public class TestMXA : ScpiInstrumentMock, IAsset, IOnPollMetricsCallback
-    { 
+    {
         [Metric]
         public DateTime CalibrationDate { get; set; }
 
@@ -446,14 +446,18 @@ public class MetricManagerTest
         InstrumentSettings.Current.Clear();
         var mxa1 = new TestMXA()
         {
-            Name = "MXA 1", CalibrationDate = DateTime.Today,
-            SerialNumber = "MXA1_SER", Model = "N9020"
+            Name = "MXA 1",
+            CalibrationDate = DateTime.Today,
+            SerialNumber = "MXA1_SER",
+            Model = "N9020"
         };
         InstrumentSettings.Current.Add(mxa1);
         var mxa2 = new TestMXA()
         {
-            Name = "MXA 2", CalibrationDate = (DateTime.Today + TimeSpan.FromDays(1)),
-            SerialNumber = "MXA2_SER", Model = "N9020"
+            Name = "MXA 2",
+            CalibrationDate = (DateTime.Today + TimeSpan.FromDays(1)),
+            SerialNumber = "MXA2_SER",
+            Model = "N9020"
         };
         InstrumentSettings.Current.Add(mxa2);
 
