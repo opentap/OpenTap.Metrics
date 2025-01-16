@@ -49,9 +49,17 @@ public class DiscoveryResult
 public class DiscoveredAsset : IAsset
 {
     /// <summary>
+    /// The manufacturer of the asset. E.g. "Keysight". 
+    /// Should map to the first part of the *IDN? SCPI query, or the Vendor ID in a USB descriptor.
+    /// </summary>
+    public string Manufacturer { get; set; }
+
+
+    /// <summary>
     /// The type of the asset. E.g. "N9020A".
     /// This can be used to determine a suitable driver for the asset
     /// so it can be used as an Asset in OpenTAP.
+    /// Should map to the second part of the *IDN? SCPI query, or the Product ID in a USB descriptor.
     /// </summary>
     public string Model { get; set; }
     /// <summary>
@@ -67,6 +75,12 @@ public class DiscoveredAsset : IAsset
 /// </summary>
 public interface IAsset
 {
+    /// <summary>
+    /// The manufacturer of the asset. E.g. "Keysight". 
+    /// Should map to the first part of the *IDN? SCPI query, or the Vendor ID in a USB descriptor.
+    /// </summary>
+    public string Manufacturer { get; }
+
     /// <summary>
     /// The type of the asset. E.g. "N9020A".
     /// This can be used to determine a suitable driver for the asset
